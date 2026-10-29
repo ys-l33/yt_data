@@ -273,6 +273,13 @@ td.text { min-width: 320px; max-width: 640px; white-space: pre-wrap; word-break:
 .legend .ln { width: 16px; height: 0; vertical-align: 3px; border-top: 2px dashed var(--ink); }
 .legend .ln.med { border-top: 2px dotted var(--ink-2); }
 
+.more-bar { display: flex; align-items: center; justify-content: space-between; gap: 8px 16px; flex-wrap: wrap; margin-bottom: 12px; }
+table.data th.del, table.data td.del { width: 1%; padding-left: 12px; padding-right: 4px; }
+.row-del {
+  width: 26px; height: 26px; border: 1px solid var(--rule-2); background: transparent; color: var(--ink-2);
+  font-size: 16px; line-height: 1; cursor: pointer; transition: background .15s, color .15s, border-color .15s;
+}
+.row-del:hover { background: var(--error); border-color: var(--error); color: var(--ivory); }
 .chips { display: flex; flex-wrap: wrap; gap: 6px; }
 .chip { padding: 3px 11px; border: 1px solid var(--rule-2); border-radius: 999px; font-size: 13px; background: var(--paper-hi); }
 button.chip { font: inherit; font-size: 13px; color: var(--ink); cursor: pointer; transition: background .15s, border-color .15s; }

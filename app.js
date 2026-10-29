@@ -358,6 +358,7 @@ function renderTable(el, cols, rows, { sortKey = null, dir = -1, onRowClick, row
     const head = cols.map(c => {
       const isNum = c.type && c.type !== 'text';
       const arrow = sortKey === c.key ? (dir > 0 ? ' ▲' : ' ▼') : '';
+      if (c.sortable === false) return `<th class="${c.cls || ''}">${esc(c.label)}</th>`;
       return `<th data-k="${c.key}" class="${isNum ? 'num' : ''} ${c.cls || ''} ${sortKey === c.key ? 'sorted' : ''}">${esc(c.label)}${arrow}</th>`;
     }).join('');
     const body = list.map(([r, i]) => {
@@ -380,9 +381,10 @@ function renderTable(el, cols, rows, { sortKey = null, dir = -1, onRowClick, row
       return;
     }
     const tr = e.target.closest('tr[data-i]');
-    if (tr && onRowClick && !e.target.closest('a')) onRowClick(rows[+tr.dataset.i], tr);
+    if (tr && onRowClick && !e.target.closest('a, button')) onRowClick(rows[+tr.dataset.i], tr);
   };
   draw();
+  return { sortState: () => ({ sortKey, dir }) };
 }
 
 function downloadCSV(filename, cols, rows) {
@@ -713,6 +715,9 @@ function updateSearchCost() {
   $('#sFrom').max = $('#sTo').max = new Date().toLocaleDateString('sv-SE');
 }
 
+// 한 번의 검색 조건과 진행 상태. "더 검색"은 여기서 이어서 다음 페이지를 가져온다.
+let searchSession = null;
+
 async function runSearch() {
   const q = $('#sQuery').value.trim();
   if (!q) return toast('검색어를 입력해 주세요.');
@@ -744,106 +749,165 @@ async function runSearch() {
   } else if (period) {
     publishedAfter = new Date(Date.now() - +period * 864e5).toISOString();
   }
-  const params = {
-    part: 'snippet', type, q: apiQuery,
-    order,
-    regionCode: $('#sRegion').value,
-    relevanceLanguage: $('#sRegion').value === 'KR' ? 'ko' : undefined,
-    publishedAfter,
-    publishedBefore,
-    // 쇼츠 필터가 없어 쇼츠만 찾을 땐 4분 미만으로 후보를 좁히고, 아래에서 쇼츠 판별로 다시 거른다
-    videoDuration: type === 'video' && kind === 'short' ? 'short' : undefined,
+
+  const session = {
+    q, type, kind,
+    params: {
+      part: 'snippet', type, q: apiQuery,
+      order,
+      regionCode: $('#sRegion').value,
+      relevanceLanguage: $('#sRegion').value === 'KR' ? 'ko' : undefined,
+      publishedAfter,
+      publishedBefore,
+      // 쇼츠 필터가 없어 쇼츠만 찾을 땐 4분 미만으로 후보를 좁히고, 아래에서 쇼츠 판별로 다시 거른다
+      videoDuration: type === 'video' && kind === 'short' ? 'short' : undefined,
+    },
+    filtering: excludeCount > 0 || (type === 'video' && kind !== 'all'),
+    keep: type === 'video'
+      ? v => (hasAny(v.title, ex.title) || hasAny(v.description, ex.desc) || hasAny(v.tags, ex.tags) || hasAny(v.channelTitle, ex.channel) ? 'excluded'
+        : kind !== 'all' && (kind === 'short') !== v.isShort ? 'kind' : 'ok')
+      : c => (hasAny(c.description, ex.desc) || hasAny(`${c.title} ${c.handle}`, ex.channel) ? 'excluded' : 'ok'),
+    results: [],
+    seen: new Set(),      // 이미 받은 결과(직접 삭제한 것 포함)는 다시 가져오지 않는다
+    buffer: [],           // 받아 놓고 아직 쓰지 않은 결과 (다음 "더 검색" 때 먼저 쓴다)
+    pageToken: undefined,
+    started: false,
+    dropped: 0, kindDropped: 0, removed: 0,
+    sort: {},
   };
-
-  // 제외 단어·영상 종류로 빠진 만큼 다음 페이지에서 채워 요청한 개수를 맞춘다.
-  // 검색 1회가 100 유닛이라 조건이 너무 좁을 때 할당량을 다 쓰지 않도록 추가 검색은 3페이지까지만 한다.
-  const filtering = excludeCount > 0 || (type === 'video' && kind !== 'all');
-  const maxPages = Math.ceil(count / 50) + (filtering ? 3 : 0);
-  const keep = type === 'video'
-    ? v => (hasAny(v.title, ex.title) || hasAny(v.description, ex.desc) || hasAny(v.tags, ex.tags) || hasAny(v.channelTitle, ex.channel) ? 'excluded'
-      : kind !== 'all' && (kind === 'short') !== v.isShort ? 'kind' : 'ok')
-    : c => (hasAny(c.description, ex.desc) || hasAny(`${c.title} ${c.handle}`, ex.channel) ? 'excluded' : 'ok');
-  const kept = [], seen = new Set();
-  let pageToken, pages = 0, dropped = 0, kindDropped = 0, quotaMsg = '';
-  try {
-    do {
-      setStatus('#sStatus', `검색 중… ${kept.length}/${count}건`, 'busy');
-      const want = filtering ? 50 : Math.min(50, count - kept.length);
-      const d = await yt('search', { ...params, maxResults: want, pageToken });
-      pages++;
-      pageToken = d.nextPageToken;
-      const ids = d.items.map(i => (type === 'video' ? i.id.videoId : i.id.channelId)).filter(id => id && !seen.has(id));
-      ids.forEach(id => seen.add(id));
-      if (!ids.length) continue;
-      const items = type === 'video' ? await fetchVideos(ids) : await fetchChannels(ids);
-      for (const it of items) {
-        const r = keep(it);
-        if (r === 'excluded') dropped++;
-        else if (r === 'kind') kindDropped++;
-        else if (kept.length < count) kept.push(it);
-      }
-    } while (kept.length < count && pageToken && pages < maxPages);
-  } catch (e) {
-    if (!isQuotaError(e) || !kept.length) throw e;
-    quotaMsg = `${count}건 중 ${kept.length}건까지만 검색했습니다.`;
+  const { quotaMsg } = await searchMore(session, count);
+  if (!session.results.length) {
+    if (quotaMsg) throw new ApiError(explainError(403, { errors: [{ reason: 'quotaExceeded' }] }), 'quotaExceeded');
+    setStatus('#sStatus', '조건에 맞는 검색 결과가 없습니다.', '');
+    $('#sResult').innerHTML = '';
+    return;
   }
+  searchSession = session;
+  renderSearch();
+  if (quotaMsg) quotaNotice('#sStatus', quotaMsg);
+}
 
-  if (!kept.length) { setStatus('#sStatus', '조건에 맞는 검색 결과가 없습니다.', ''); $('#sResult').innerHTML = ''; return; }
-  setStatus('#sStatus', '상세 지표 불러오는 중…', 'busy');
+// 조건에 맞는 결과를 n건 더 모은다. 제외·종류 조건으로 빠진 만큼 다음 페이지에서 채우되,
+// 검색 1회가 100 유닛이라 조건이 너무 좁을 때 할당량을 다 쓰지 않도록 추가 검색은 3페이지까지만 한다.
+async function searchMore(session, n) {
+  const added = [];
+  const take = it => {
+    session.seen.add(it.id);
+    const r = session.keep(it);
+    if (r === 'excluded') session.dropped++;
+    else if (r === 'kind') session.kindDropped++;
+    else added.push(it);
+  };
+  while (session.buffer.length && added.length < n) take(session.buffer.shift());
+  const maxPages = Math.ceil(n / 50) + (session.filtering ? 3 : 0);
+  let pages = 0, quotaMsg = '';
+  try {
+    while (added.length < n && pages < maxPages && (!session.started || session.pageToken)) {
+      setStatus('#sStatus', `검색 중… ${added.length}/${n}건`, 'busy');
+      const want = session.filtering ? 50 : Math.min(50, n - added.length);
+      const d = await yt('search', { ...session.params, maxResults: want, pageToken: session.pageToken });
+      session.started = true;
+      pages++;
+      session.pageToken = d.nextPageToken;
+      const ids = d.items.map(i => (session.type === 'video' ? i.id.videoId : i.id.channelId)).filter(id => id && !session.seen.has(id));
+      ids.forEach(id => session.seen.add(id));
+      if (!ids.length) continue;
+      const items = session.type === 'video' ? await fetchVideos(ids) : await fetchChannels(ids);
+      for (const it of items) {
+        if (added.length < n) take(it); else session.buffer.push(it);
+      }
+    }
+  } catch (e) {
+    if (!isQuotaError(e)) throw e;
+    quotaMsg = `${n}건 중 ${added.length}건까지만 검색했습니다.`;
+  }
+  if (session.type === 'video' && added.length && !quotaMsg) {
+    setStatus('#sStatus', '구독자 수 불러오는 중…', 'busy');
+    try { await attachChannelStats(added); }
+    catch (e) {
+      if (!isQuotaError(e)) throw e;
+      quotaMsg = '검색 결과는 불러왔지만 구독자 수는 불러오지 못했습니다.';
+    }
+  }
+  session.results.push(...added);
+  session.shortfall = !quotaMsg && added.length < n;
+  return { added: added.length, quotaMsg };
+}
+
+const searchChannelCols = [
+  channelCol,
+  { key: 'subs', label: '구독자', type: 'num' },
+  { key: 'totalViews', label: '총 조회수', type: 'num' },
+  { key: 'videoCount', label: '총 영상', type: 'num' },
+  { key: 'lifetimeAvgViews', label: '영상당 평균 조회수(누적)', type: 'num' },
+  { key: 'createdAt', label: '개설일', type: 'date' },
+  { key: 'country', label: '국가', type: 'text' },
+];
+const deleteCol = {
+  key: '_del', label: '삭제', type: 'text', sortable: false, cls: 'del',
+  html: r => `<button type="button" class="row-del" data-del="${esc(r.id)}" title="목록에서 삭제" aria-label="목록에서 삭제">×</button>`,
+};
+
+function renderSearch() {
+  const s = searchSession;
+  const list = s.results;
+  searchResults = list;
+  const isVideo = s.type === 'video';
+  const cols = isVideo ? videoCols(true) : searchChannelCols;
+  const exhausted = s.started && !s.pageToken && !s.buffer.length;
   const notes = [
-    dropped ? `제외 단어가 들어간 ${dropped}건` : '',
-    kindDropped ? `${kind === 'short' ? '쇼츠' : '일반 영상'}가 아닌 ${kindDropped}건` : '',
+    s.dropped ? `제외 단어가 들어간 ${s.dropped}건` : '',
+    s.kindDropped ? `${s.kind === 'short' ? '쇼츠' : '일반 영상'}가 아닌 ${s.kindDropped}건` : '',
   ].filter(Boolean);
   const sub = [
     notes.length ? `${notes.join(', ')}을 빼고 다시 채웠습니다` : '',
-    kept.length < count && !quotaMsg ? `조건에 맞는 결과가 ${kept.length}건뿐이었습니다` : '',
+    s.removed ? `직접 삭제한 ${s.removed}건` : '',
+    exhausted ? '더 이상 검색 결과가 없습니다' : s.shortfall ? '조건에 맞는 결과가 적어 요청한 수보다 적게 찾았습니다' : '',
+    isVideo ? '' : '정확한 최근 성과는 “채널별 비교로 보내기” 후 확인하세요.',
   ].filter(Boolean).join(' · ');
-
-  if (type === 'video') {
-    const vids = kept;
-    if (!quotaMsg) {
-      try { await attachChannelStats(vids); }
-      catch (e) {
-        if (!isQuotaError(e)) throw e;
-        quotaMsg = '검색 결과는 모두 불러왔지만 구독자 수는 불러오지 못했습니다.';
-      }
-    }
-    searchResults = vids;
-    const cols = videoCols(true);
-    const body = block($('#sResult'), {
-      title: `“${q}” 영상 검색 결과 ${vids.length}건`,
-      sub,
-      actions: [
-        { label: '영상들을 영상별 비교로 보내기', run: () => sendToVideos(vids.map(v => v.id)) },
-        { label: '채널들을 채널별 비교로 보내기', run: () => sendToChannels(vids.map(v => v.channelId)) },
-        { label: 'CSV 다운로드', run: () => downloadCSV(`검색_${q}`, [...cols, ...videoCsvExtra], searchResults) },
-      ],
-    });
-    renderTable(body, cols, vids);
-    if (quotaMsg) quotaNotice('#sStatus', quotaMsg);
-  } else {
-    const chs = kept;
-    searchResults = chs;
-    const cols = [
-      channelCol,
-      { key: 'subs', label: '구독자', type: 'num' },
-      { key: 'totalViews', label: '총 조회수', type: 'num' },
-      { key: 'videoCount', label: '총 영상', type: 'num' },
-      { key: 'lifetimeAvgViews', label: '영상당 평균 조회수(누적)', type: 'num' },
-      { key: 'createdAt', label: '개설일', type: 'date' },
-      { key: 'country', label: '국가', type: 'text' },
-    ];
-    const body = block($('#sResult'), {
-      title: `“${q}” 채널 검색 결과 ${chs.length}건`,
-      sub: [sub, '정확한 최근 성과는 “채널별 비교로 보내기” 후 확인하세요.'].filter(Boolean).join(' · '),
-      actions: [
-        { label: '채널별 비교로 보내기', run: () => sendToChannels(chs.map(c => c.id)) },
-        { label: 'CSV 다운로드', run: () => downloadCSV(`채널검색_${q}`, [{ key: 'title', label: '채널명', type: 'text' }, { key: 'handle', label: '핸들', type: 'text' }, { key: 'id', label: '채널ID', type: 'text' }, { key: 'url', label: 'URL', type: 'text' }, ...cols.slice(1)], searchResults) },
-      ],
-    });
-    renderTable(body, cols, chs);
-    if (quotaMsg) quotaNotice('#sStatus', quotaMsg);
-  }
+  const csvCols = isVideo
+    ? [...cols, ...videoCsvExtra]
+    : [{ key: 'title', label: '채널명', type: 'text' }, { key: 'handle', label: '핸들', type: 'text' }, { key: 'id', label: '채널ID', type: 'text' }, { key: 'url', label: 'URL', type: 'text' }, ...cols.slice(1)];
+  const body = block($('#sResult'), {
+    title: `“${s.q}” ${isVideo ? '영상' : '채널'} 검색 결과 ${list.length}건`,
+    sub,
+    actions: [
+      ...(isVideo ? [
+        { label: '영상들을 영상별 비교로 보내기', run: () => sendToVideos(list.map(v => v.id)) },
+        { label: '채널들을 채널별 비교로 보내기', run: () => sendToChannels(list.map(v => v.channelId)) },
+      ] : [
+        { label: '채널별 비교로 보내기', run: () => sendToChannels(list.map(c => c.id)) },
+      ]),
+      { label: 'CSV 다운로드', run: () => downloadCSV(`${isVideo ? '검색' : '채널검색'}_${s.q}`, csvCols, list) },
+    ],
+  });
+  body.innerHTML = `
+    <div class="more-bar">
+      <label class="inline">결과
+        <select id="sMoreN"><option>10</option><option selected>25</option><option>50</option></select>
+        건 <button type="button" id="sMore" class="ghost small" ${exhausted ? 'disabled' : ''}>더 검색하기</button>
+      </label>
+      <span class="muted">${exhausted ? '더 가져올 결과가 없습니다' : '이미 받은 결과와 삭제한 결과는 다시 나오지 않습니다 · 검색 1회 100 유닛'}</span>
+    </div>
+    <div class="stable"></div>`;
+  const tableEl = $('.stable', body);
+  const table = renderTable(tableEl, [deleteCol, ...cols], list, s.sort);
+  tableEl.addEventListener('click', e => {
+    const btn = e.target.closest('[data-del]');
+    if (!btn) return;
+    s.sort = table.sortState();
+    s.results = s.results.filter(r => r.id !== btn.dataset.del);
+    s.removed++;
+    renderSearch();
+  });
+  $('#sMore', body).onclick = () => run($('#sMore', body), '#sStatus', async () => {
+    s.sort = table.sortState();
+    const n = +$('#sMoreN', body).value;
+    const { added, quotaMsg } = await searchMore(s, n);
+    renderSearch();
+    if (quotaMsg) return added ? quotaNotice('#sStatus', quotaMsg) : setStatus('#sStatus', explainError(403, { errors: [{ reason: 'quotaExceeded' }] }), 'error');
+    setStatus('#sStatus', added ? `${added}건을 더 찾았습니다.` : '조건에 맞는 결과를 더 찾지 못했습니다.', added ? 'ok' : '');
+  });
 }
 
 function sendToChannels(ids) {

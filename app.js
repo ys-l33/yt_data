@@ -465,22 +465,23 @@ function viewsChart(vids) {
   const bw = (W - L - R) / data.length;
   const y = v => T + (H - T - B) * (1 - v / max);
   const avg = mean(data.map(v => v.views)), med = median(data.map(v => v.views));
-  let svg = '';
+  // 쇼츠는 색을 하나 더 쓰는 대신 빗금으로 구분한다
+  let svg = `<defs><pattern id="hatch" width="5" height="5" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="5" height="5" class="hatch-bg"/><line x1="0" y1="0" x2="0" y2="5" class="hatch-line"/></pattern></defs>`;
   for (let i = 0; i <= 4; i++) {
     const v = (max * i) / 4, yy = y(v);
     svg += `<line class="grid-line" x1="${L}" x2="${W - R}" y1="${yy}" y2="${yy}"/><text class="axis" x="${L - 6}" y="${yy + 4}" text-anchor="end">${fmt.compact(v)}</text>`;
   }
   data.forEach((v, i) => {
     const x = L + i * bw + bw * 0.15, yy = y(v.views);
-    svg += `<rect class="bar ${v.isShort ? 'short' : ''}" x="${x}" y="${yy}" width="${Math.max(1, bw * 0.7)}" height="${H - B - yy}" rx="${Math.min(6, bw * 0.3)}"><title>${esc(v.title)}\n${fmt.date(v.publishedAt)} · 조회수 ${fmt.num(v.views)} · 참여율 ${fmt.pct(v.er)}</title></rect>`;
+    svg += `<rect class="bar ${v.isShort ? 'short' : ''}" x="${x}" y="${yy}" width="${Math.max(1, bw * 0.7)}" height="${H - B - yy}"><title>${esc(v.title)}\n${fmt.date(v.publishedAt)} · 조회수 ${fmt.num(v.views)} · 참여율 ${fmt.pct(v.er)}</title></rect>`;
   });
   svg += `<line class="avg" x1="${L}" x2="${W - R}" y1="${y(avg)}" y2="${y(avg)}"/>`;
   svg += `<line class="med" x1="${L}" x2="${W - R}" y1="${y(med)}" y2="${y(med)}"/>`;
   svg += `<text class="axis" x="${L}" y="${H - 6}">${fmt.date(data[0].publishedAt)}</text>`;
   svg += `<text class="axis" x="${W - R}" y="${H - 6}" text-anchor="end">${fmt.date(data[data.length - 1].publishedAt)}</text>`;
   return `<div class="chart-wrap"><svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="영상별 조회수">${svg}</svg>
-    <div class="legend"><span><i style="background:var(--bar)"></i>롱폼</span><span><i style="background:var(--bar-short)"></i>쇼츠</span>
-    <span><i class="line" style="border-color:var(--avg-line)"></i>평균 ${fmt.compact(avg)}</span><span><i class="line" style="border-color:var(--muted)"></i>중앙값 ${fmt.compact(med)}</span>
+    <div class="legend"><span><i class="sw long"></i>롱폼</span><span><i class="sw short"></i>쇼츠</span>
+    <span><i class="ln avg"></i>평균 ${fmt.compact(avg)}</span><span><i class="ln med"></i>중앙값 ${fmt.compact(med)}</span>
     <span>막대에 마우스를 올리면 영상 정보가 보입니다</span></div></div>`;
 }
 

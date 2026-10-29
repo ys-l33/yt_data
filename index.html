@@ -23,7 +23,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@0,300;0,500;1,300&family=Fraunces:ital,opsz,wght,SOFT,WONK@0,9..144,300..600,0..100,0..1;1,9..144,300..600,0..100,0..1&family=Gowun+Batang:wght@400;700&display=swap">
-  <link rel="stylesheet" href="style.css?v=20261029-21">
+  <link rel="stylesheet" href="style.css?v=20261029-22">
 </head>
 <body>
   <div class="ambient" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span><i></i><i></i><i></i><i></i><i></i><i></i></div>
@@ -114,7 +114,7 @@
       <div class="card">
         <div class="grid">
           <label class="field wide">
-            <span>검색어 <em>여러 단어 중 하나라도 포함: | 로 구분 (예: 카카오페이 | 네이버페이)</em></span>
+            <span>검색어 <em>여러 단어 중 하나라도 포함: 쉼표(,)로 구분 (예: 카카오페이, 네이버페이)</em></span>
             <input id="sQuery" type="text" placeholder="예: 페이">
           </label>
           <div class="field wide">
@@ -163,7 +163,8 @@
           </label>
           <label class="field">
             <span>결과 수</span>
-            <select id="sCount"><option>25</option><option selected>50</option><option>100</option><option>150</option></select>
+            <select id="sCount"><option>25</option><option selected>50</option><option>100</option><option>150</option><option value="custom">직접 입력</option></select>
+            <input id="sCountCustom" type="number" min="1" max="500" step="1" placeholder="1~500" aria-label="결과 수 직접 입력" hidden>
           </label>
           <div id="sDates" class="field wide" hidden>
             <span>기간 직접 입력 <em>게시일 기준 · 시작일과 종료일 포함</em></span>
@@ -197,8 +198,8 @@
             <select id="cOrder"><option value="relevance">인기순</option><option value="time">최신순</option></select>
           </label>
           <label class="field">
-            <span>최대 수집</span>
-            <select id="cMax"><option>100</option><option selected>500</option><option>1000</option><option>3000</option></select>
+            <span>수집 댓글수</span>
+            <select id="cMax"><option>100</option><option selected>500</option><option>1000</option><option>3000</option><option value="all">댓글 전체</option></select>
           </label>
           <label class="field wide">
             <span>언급 키워드 <em>쉼표로 구분 · 브랜드명, 제품명 등</em></span>
@@ -298,6 +299,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=20261029-21"></script>
+  <script src="app.js?v=20261029-22"></script>
 </body>
 </html>

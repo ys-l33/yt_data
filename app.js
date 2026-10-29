@@ -697,11 +697,24 @@ async function runVideos() {
 
 let searchResults = [];
 
+// YouTube 검색은 한 검색어당 최대 500건 정도까지만 결과를 준다
+const SEARCH_MAX = 500;
+function searchCount() {
+  if ($('#sCount').value !== 'custom') return +$('#sCount').value;
+  const n = Math.round(+$('#sCountCustom').value);
+  return n >= 1 ? Math.min(n, SEARCH_MAX) : 0;
+}
+
 function updateSearchCost() {
-  const count = +$('#sCount').value;
+  $('#sCountCustom').hidden = $('#sCount').value !== 'custom';
+  const count = searchCount();
   const pages = Math.ceil(count / 50);
   const extra = Math.ceil(count / 50) * ($('#sType').value === 'video' ? 2 : 1);
-  $('#sCost').textContent = `예상 할당량: 약 ${(pages * 100 + extra).toLocaleString()} 유닛 (검색 1회 = 100 · 제외·종류 조건으로 빠진 만큼 더 검색하면 늘어남)`;
+  const typed = $('#sCount').value === 'custom' ? Math.round(+$('#sCountCustom').value) : 0;
+  $('#sCost').textContent = !count
+    ? `결과 수를 1~${SEARCH_MAX} 사이로 입력하면 예상 할당량을 보여줍니다`
+    : `예상 할당량: 약 ${(pages * 100 + extra).toLocaleString()} 유닛 (검색 1회 = 100 · 제외·종류 조건으로 빠진 만큼 더 검색하면 늘어남)`
+      + (typed > SEARCH_MAX ? ` · YouTube 검색은 최대 ${SEARCH_MAX}건까지라 ${SEARCH_MAX}건으로 검색합니다` : '');
   const isVideo = $('#sType').value === 'video';
   $('#sKind').disabled = !isVideo;
   // 채널 검색에는 영상 제목·태그가 없어 설명·채널명 칸만 쓴다
@@ -722,7 +735,8 @@ let searchSession = null;
 async function runSearch() {
   const q = $('#sQuery').value.trim();
   if (!q) return toast('검색어를 입력해 주세요.');
-  const type = $('#sType').value, count = +$('#sCount').value;
+  const type = $('#sType').value, count = searchCount();
+  if (!count) return toast(`결과 수를 1~${SEARCH_MAX} 사이로 입력해 주세요.`);
   // YouTube 검색은 비슷한 말까지 넓게 잡으므로(예: 페이 → 페이커) 위치별 제외 단어로 결과를 거른다
   const words = sel => unique($(sel).value.split(',').map(s => s.trim().toLowerCase()).filter(Boolean));
   const ex = {
@@ -736,7 +750,9 @@ async function runSearch() {
   const everywhere = type === 'video'
     ? ex.title.filter(w => ex.desc.includes(w) && ex.tags.includes(w))
     : [];
-  const apiQuery = q + everywhere.map(w => ` -${/\s/.test(w) ? `"${w}"` : w}`).join('');
+  // 쉼표로 나눈 검색어는 "하나라도 포함"(YouTube의 | 연산자)으로 보낸다
+  const orQuery = q.split(/[,|]/).map(s => s.trim()).filter(Boolean).join(' | ');
+  const apiQuery = orQuery + everywhere.map(w => ` -${/\s/.test(w) ? `"${w}"` : w}`).join('');
   const excludeCount = ex.title.length + ex.desc.length + ex.tags.length + ex.channel.length;
   const period = $('#sPeriod').value, kind = $('#sKind').value, order = $('#sOrder').value;
   let publishedAfter, publishedBefore;
@@ -961,11 +977,18 @@ function topWords(texts, limit = 40) {
 async function runComments() {
   const id = parseVideoId($('#cVideo').value);
   if (!id) return toast('영상 URL이나 ID를 입력해 주세요.');
-  const max = +$('#cMax').value, order = $('#cOrder').value;
+  const all = $('#cMax').value === 'all';
+  const max = all ? Infinity : +$('#cMax').value, order = $('#cOrder').value;
 
   setStatus('#cStatus', '영상 정보 확인 중…', 'busy');
   const [video] = await fetchVideos([id]);
   if (!video) throw new Error('영상을 찾을 수 없습니다.');
+  // 댓글 100개당 1 유닛이라 댓글이 아주 많은 영상은 전체 수집 전에 확인을 받는다 (댓글 수에는 답글도 포함돼 실제보다 크게 잡힌다)
+  const estimate = Math.ceil((video.comments || 0) / 100);
+  if (all && estimate > 200 && !confirm(`이 영상은 댓글이 약 ${fmt.num(video.comments)}개라 전체 수집에 할당량이 최대 ${fmt.num(estimate)} 유닛 정도 쓰일 수 있습니다. 계속할까요?`)) {
+    setStatus('#cStatus', '댓글 수집을 취소했습니다.', '');
+    return;
+  }
 
   const comments = [];
   let pageToken, quotaHit = false;
@@ -1026,7 +1049,7 @@ function renderComments() {
 
   const body = block($('#cResult'), {
     title: video.title,
-    sub: `${esc(video.channelTitle)} · 조회수 ${fmt.num(video.views)} · 전체 댓글 ${fmt.num(video.comments)}개 중 ${fmt.num(comments.length)}개 수집`,
+    sub: `${esc(video.channelTitle)} · 조회수 ${fmt.num(video.views)} · 전체 댓글 ${fmt.num(video.comments)}개(답글 포함) 중 ${fmt.num(comments.length)}개 수집`,
     actions: [{
       label: 'CSV 다운로드',
       run: () => {
@@ -1445,6 +1468,8 @@ function init() {
   $('#cVideo').onkeydown = e => { if (e.key === 'Enter') $('#cRun').click(); };
   $('#cKeywords').oninput = () => renderComments();
   ['#sType', '#sCount', '#sPeriod'].forEach(s => { $(s).onchange = updateSearchCost; });
+  $('#sCountCustom').oninput = updateSearchCost;
+  $('#sCountCustom').onkeydown = e => { if (e.key === 'Enter') $('#sRun').click(); };
   updateSearchCost();
   initSettings();
   initKeyModal();

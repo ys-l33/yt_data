@@ -233,8 +233,9 @@ async function resolveChannelId(input) {
   return d.items?.[0]?.snippet?.channelId || d.items?.[0]?.id?.channelId || null;
 }
 
-// 업로드 목록을 최신순으로 읽는다. want개를 모으거나 scanMax개를 훑으면 멈춘다.
-async function fetchUploads(playlistId, { want = Infinity, scanMax = 500, type = 'all' }, onProgress) {
+// 업로드 목록을 최신순으로 읽는다. want개를 모으거나 scanMax개를 훑거나, since보다 오래된 영상만 남으면 멈춘다.
+// before보다 늦게 올라온 영상은 건너뛴다.
+async function fetchUploads(playlistId, { want = Infinity, scanMax = 500, type = 'all', since = null, before = null }, onProgress) {
   const out = [];
   let pageToken, scanned = 0;
   do {
@@ -248,14 +249,20 @@ async function fetchUploads(playlistId, { want = Infinity, scanMax = 500, type =
     pageToken = pl.nextPageToken;
     const ids = pl.items.map(i => i.contentDetails.videoId);
     scanned += ids.length;
-    for (const v of await fetchVideos(ids)) {
+    const page = await fetchVideos(ids);
+    // 업로드 목록은 대체로 최신순이라, 한 페이지가 통째로 시작일보다 오래되면 더 읽지 않는다
+    const pastRange = since && page.length && page.every(v => v.publishedAt < since);
+    for (const v of page) {
       if (v.live !== 'none') continue; // 예정/진행 중 라이브 제외
+      if (since && v.publishedAt < since) continue;
+      if (before && v.publishedAt > before) continue;
       if (type === 'long' && v.isShort) continue;
       if (type === 'short' && !v.isShort) continue;
       out.push(v);
       if (out.length >= want) break;
     }
     onProgress?.(out.length, scanned);
+    if (pastRange) break;
   } while (out.length < want && pageToken && scanned < scanMax);
   return out.sort((a, b) => b.publishedAt - a.publishedAt);
 }
@@ -267,18 +274,36 @@ const CHANNEL_SORT = {
   comments: { label: '댓글 상위', key: 'comments' },
 };
 
-// 선정 기준에 맞는 분석 영상과, 업로드 빈도를 셀 탐색 범위의 영상을 함께 돌려준다
+// 분석 범위: 최근 업로드 N개(기본 300) 또는 게시일 기간. "전체"는 너무 큰 채널에서 할당량이 새지 않도록 최근 5,000개까지만 읽는다.
+function channelScope() {
+  if ($('#chModeDate').checked) {
+    const from = $('#chFrom').value, to = $('#chTo').value;
+    return {
+      mode: 'date', from, to,
+      since: from ? new Date(`${from}T00:00:00`) : null,
+      before: to ? new Date(`${to}T23:59:59.999`) : null,
+    };
+  }
+  const v = $('#chScopeCount').value;
+  return { mode: 'count', count: v === 'all' ? 5000 : +v, all: v === 'all' };
+}
+
+function scopeText(scope) {
+  if (scope.mode === 'date') return `${scope.from || '처음'} ~ ${scope.to || '오늘'} 게시`;
+  return scope.all ? '채널 전체' : `최근 ${fmt.num(scope.count)}개`;
+}
+
+// 선정 기준에 맞는 분석 영상과, 업로드 빈도를 셀 범위 안의 영상을 함께 돌려준다
 async function pickChannelVideos(ch, { n, type, sort, scope }, onProgress) {
   if (!ch.uploads) return { picked: [], scanned: [] };
-  if (sort === 'recent') {
-    const vids = await fetchUploads(ch.uploads, { want: n, type }, onProgress);
-    return { picked: vids, scanned: vids };
-  }
-  // 채널 전체는 너무 큰 채널에서 할당량이 새지 않도록 최근 5,000개까지만 읽는다
-  const scanMax = scope === 'all' ? 5000 : +scope;
-  const pool = await fetchUploads(ch.uploads, { scanMax, type }, onProgress);
+  const opts = scope.mode === 'date'
+    ? { type, since: scope.since, before: scope.before, scanMax: 5000 }
+    : { type, scanMax: sort === 'recent' ? Math.max(500, n) : scope.count };
+  // 최근 업로드순은 범위 안에서 앞쪽 n개만 있으면 되므로 그만큼만 읽는다
+  if (sort === 'recent') opts.want = n;
+  const pool = await fetchUploads(ch.uploads, opts, onProgress);
   const key = CHANNEL_SORT[sort].key;
-  const picked = [...pool].sort((a, b) => (b[key] ?? -1) - (a[key] ?? -1)).slice(0, n);
+  const picked = key ? [...pool].sort((a, b) => (b[key] ?? -1) - (a[key] ?? -1)).slice(0, n) : pool.slice(0, n);
   return { picked, scanned: pool };
 }
 
@@ -297,7 +322,7 @@ function stdev(a) {
   return Math.sqrt(sum(a.map(x => (x - m) ** 2)) / (a.length - 1));
 }
 
-function channelMetrics(ch, vids, scannedVids = vids) {
+function channelMetrics(ch, vids, scannedVids = vids, period = null) {
   const views = vids.map(v => v.views);
   const likes = vids.map(v => v.likes || 0);
   const comments = vids.map(v => v.comments || 0);
@@ -306,7 +331,8 @@ function channelMetrics(ch, vids, scannedVids = vids) {
   const med = median(views);
   // 업로드 빈도와 최근 업로드는 선정된 영상이 아니라 실제로 훑은 범위 기준으로 센다
   const oldest = scannedVids.length ? Math.min(...scannedVids.map(v => v.publishedAt)) : null;
-  const spanWeeks = oldest ? Math.max(1, (Date.now() - oldest) / (7 * 864e5)) : null;
+  const spanStart = period?.since || oldest, spanEnd = Math.min(Date.now(), period?.before || Date.now());
+  const spanWeeks = spanStart ? Math.max(1, (spanEnd - spanStart) / (7 * 864e5)) : null;
   return {
     ...ch,
     videos: vids,
@@ -624,7 +650,21 @@ function bindChartTips(root, vids) {
 
 /* ---------------- 탭: 채널 분석 ---------------- */
 
-// 분석 대상이 "쇼츠만"일 때만 쇼츠 판별 기준 ⓘ 버튼을 보인다
+// "상세 설정" 옆에 지금 적용될 범위를 짧게 보여 준다. 기간 기준을 고르면 비어 있는 날짜는 최근 30일로 채운다.
+function syncChScope() {
+  if ($('#chModeDate').checked && !$('#chFrom').value && !$('#chTo').value) {
+    const today = new Date();
+    $('#chTo').value = today.toLocaleDateString('sv-SE');
+    $('#chFrom').value = new Date(today - 30 * 864e5).toLocaleDateString('sv-SE');
+  }
+  $('#chFrom').max = $('#chTo').max = new Date().toLocaleDateString('sv-SE');
+  const scope = channelScope();
+  $('#chScopeSummary').textContent = $('#chSort').value === 'recent' && scope.mode === 'count'
+    ? '범위: 가장 최근 영상부터'
+    : `범위: ${scopeText(scope)} 영상 중`;
+}
+
+// 분석 영상 유형이 "쇼츠만"일 때만 쇼츠 판별 기준 ⓘ 버튼을 보인다
 function syncChTypeInfo() {
   const show = $('#chType').value === 'short';
   $('#chTypeInfoWrap').hidden = !show;
@@ -671,7 +711,8 @@ const channelCsvCols = [
 async function runChannels() {
   const lines = unique($('#chInput').value.split('\n').map(s => s.trim()).filter(Boolean));
   if (!lines.length) return toast('분석할 채널을 입력해 주세요.');
-  const n = +$('#chN').value, type = $('#chType').value, sort = $('#chSort').value, scope = $('#chScope').value;
+  const n = +$('#chN').value, type = $('#chType').value, sort = $('#chSort').value, scope = channelScope();
+  if (scope.mode === 'date' && scope.since && scope.before && scope.since > scope.before) return toast('시작일이 종료일보다 늦습니다.');
 
   const ids = [], failed = [], results = [];
   let quotaHit = false;
@@ -689,7 +730,7 @@ async function runChannels() {
       setStatus('#chStatus', label, 'busy');
       const progress = (k, scanned) => setStatus('#chStatus', sort === 'recent' ? `${label} ${k}개` : `${label} ${scanned}개 훑는 중`, 'busy');
       const { picked, scanned } = await pickChannelVideos(ch, { n, type, sort, scope }, progress);
-      results.push({ ...channelMetrics(ch, picked, scanned), sortKey: CHANNEL_SORT[sort].key || null });
+      results.push({ ...channelMetrics(ch, picked, scanned, scope.mode === 'date' ? scope : null), sortKey: CHANNEL_SORT[sort].key || null });
     }
   } catch (e) {
     // 도중에 끊긴 채널은 영상이 일부만 모여 지표가 왜곡되므로 넣지 않는다
@@ -701,7 +742,7 @@ async function runChannels() {
   const typeLabel = { all: '전체', long: '일반', short: '쇼츠' }[type];
   const body = block($('#chResult'), {
     title: `채널 비교 (${results.length}개)`,
-    sub: `${sort === 'recent' ? `최근 ${typeLabel} 영상 ${n}개 기준` : `${scope === 'all' ? '채널 전체' : `최근 ${scope}개`}${type === 'all' ? '' : ` ${typeLabel}`} 영상 중 ${CHANNEL_SORT[sort].label} ${n}개 기준`} · 열 제목을 누르면 정렬, 행을 누르면 영상별 상세${failed.length ? ` · 찾지 못한 채널: ${esc(failed.join(', '))}` : ''}`,
+    sub: `${sort === 'recent' && scope.mode === 'count' ? `최근 ${typeLabel} 영상 ${n}개 기준` : `${scopeText(scope)}${type === 'all' ? '' : ` ${typeLabel}`} 영상 중 ${sort === 'recent' ? '최근' : CHANNEL_SORT[sort].label} ${n}개 기준`}${results.some(r => r.sample < n) ? ` · 범위 안 영상이 적어 ${n}개보다 적게 분석된 채널이 있습니다` : ''} · 열 제목을 누르면 정렬, 행을 누르면 영상별 상세${failed.length ? ` · 찾지 못한 채널: ${esc(failed.join(', '))}` : ''}`,
     actions: [
       { label: '채널 요약 CSV', run: () => downloadCSV('채널비교', channelCsvCols, channelResults) },
       { label: '전체 영상 CSV', run: () => downloadCSV('채널별_영상', [{ key: 'channelTitle', label: '채널', type: 'text' }, ...videoCols(false), ...videoCsvExtra], channelResults.flatMap(c => c.videos)) },
@@ -1561,7 +1602,7 @@ function loadRecent() {
 function snapshotPanel(name) {
   const values = {};
   $('#tab-' + name).querySelectorAll('input[id], textarea[id], select[id]').forEach(el => {
-    values[el.id] = el.type === 'checkbox' ? el.checked : el.value;
+    values[el.id] = el.type === 'checkbox' || el.type === 'radio' ? el.checked : el.value;
   });
   return values;
 }
@@ -1579,10 +1620,10 @@ function restoreRecent(item) {
   for (const [id, v] of Object.entries(item.values)) {
     const el = document.getElementById(id);
     if (!el) continue;
-    if (el.type === 'checkbox') el.checked = v; else el.value = v;
+    if (el.type === 'checkbox' || el.type === 'radio') el.checked = v; else el.value = v;
   }
   if (item.tab === 'search') updateSearchCost();
-  if (item.tab === 'channels') { $('#chScopeWrap').hidden = $('#chSort').value === 'recent'; syncChTypeInfo(); }
+  if (item.tab === 'channels') { syncChTypeInfo(); syncChScope(); }
   switchTab(item.tab);
   window.scrollTo({ top: 0 });
   toast('그때 입력한 내용을 채웠습니다. 실행 버튼을 눌러 주세요.');
@@ -1671,12 +1712,18 @@ function resetPanel(name) {
   const panel = $('#tab-' + name);
   panel.querySelectorAll('input, textarea, select').forEach(el => {
     if (el.tagName === 'SELECT') el.selectedIndex = Math.max(0, [...el.options].findIndex(o => o.defaultSelected));
-    else if (el.type === 'checkbox') el.checked = el.defaultChecked;
+    else if (el.type === 'checkbox' || el.type === 'radio') el.checked = el.defaultChecked;
     else el.value = el.defaultValue;
   });
   panel.querySelectorAll('.status-line').forEach(el => setStatus('#' + el.id, ''));
   PANEL_RESULTS[name].forEach(sel => { $(sel).innerHTML = ''; });
-  if (name === 'channels') { channelResults = []; $('#chScopeWrap').hidden = true; syncChTypeInfo(); }
+  if (name === 'channels') {
+    channelResults = [];
+    $('#chMore').hidden = true;
+    $('#chMoreBtn').setAttribute('aria-expanded', 'false');
+    syncChTypeInfo();
+    syncChScope();
+  }
   if (name === 'videos') videoResults = [];
   if (name === 'search') { searchSession = null; searchResults = []; updateSearchCost(); }
   if (name === 'comments') commentData = { video: null, comments: [] };
@@ -1698,7 +1745,13 @@ function init() {
     };
   });
   $('#chRun').onclick = () => run($('#chRun'), '#chStatus', runChannels);
-  $('#chSort').onchange = () => { $('#chScopeWrap').hidden = $('#chSort').value === 'recent'; };
+  $('#chMoreBtn').onclick = () => {
+    const open = $('#chMore').hidden;
+    $('#chMore').hidden = !open;
+    $('#chMoreBtn').setAttribute('aria-expanded', String(open));
+  };
+  ['#chSort', '#chScopeCount', '#chFrom', '#chTo', '#chModeCount', '#chModeDate'].forEach(sel => { $(sel).onchange = syncChScope; });
+  syncChScope();
   $('#chType').onchange = syncChTypeInfo;
   $('#vRun').onclick = () => run($('#vRun'), '#vStatus', runVideos);
   $('#sRun').onclick = () => run($('#sRun'), '#sStatus', runSearch);

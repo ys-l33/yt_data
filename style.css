@@ -15,7 +15,7 @@
   --error: #A0402F;
   /* 영상 형식 색: 차트 막대·형식 태그·범례가 같은 색을 쓴다 */
   --c-long: var(--green);
-  --c-short: #9FDABA;
+  --c-short: #7B61D6;   /* 초록과 색맹 시뮬레이션에서도 구분되는 보라 (dataviz 검증) */
 
   --f-display: "Fraunces", "Gowun Batang", Georgia, serif;
   --f-title: "Gowun Batang", "Fraunces", serif;
@@ -167,6 +167,13 @@ main::after { bottom: 64px; }
 .check input { accent-color: var(--ink); width: 15px; height: 15px; }
 .keyrow input { flex: 1; min-width: 200px; }
 .date-range { flex-wrap: wrap; }
+.more-toggle::after { content: " ▾"; }
+.more-toggle[aria-expanded="true"]::after { content: " ▴"; }
+.sub-panel { margin-top: 14px; padding: 14px 16px; border: 1px dashed var(--rule-2); background: var(--paper-hi); }
+.sub-panel-title { margin: 0 0 10px; font-weight: 700; font-size: 13px; }
+.scope-opt { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
+.scope-opt input[type=radio] { accent-color: var(--ink); width: 16px; height: 16px; margin: 0; }
+.sub-panel .muted { margin: 6px 0 0; }
 .count-custom { position: relative; display: flex; align-items: center; gap: 6px; margin-top: 6px; }
 .count-custom input { flex: 1; min-width: 0; }
 .info-btn {
@@ -296,7 +303,7 @@ td.text { min-width: 320px; max-width: 640px; white-space: pre-wrap; word-break:
   white-space: nowrap;
 }
 .tag.long { background: var(--c-long); border-color: var(--c-long); }
-.tag.short { background: var(--c-short); border-color: var(--c-short); }
+.tag.short { background: var(--c-short); border-color: var(--c-short); color: #fff; }
 
 /* ---------- 차트 ---------- */
 .chart-wrap { margin-bottom: 22px; padding: 16px 16px 12px; border: 1px solid var(--rule); background: var(--paper-hi); }

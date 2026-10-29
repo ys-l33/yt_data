@@ -1261,34 +1261,28 @@ function initKeyModal() {
   $('#keyStatus').onclick = () => (getKey() ? switchTab('settings') : openKeyModal());
 }
 
-/* ---------------- 배경 날씨 (서울) ----------------
- * Open-Meteo(키 불필요)로 서울의 현재 날씨를 받아 비·눈은 캔버스 입자로, 흐림·밤은 하늘 톤으로 보여준다.
- * 주소에 ?weather=rain|snow|cloudy|clear(&night=1)를 붙이면 그 날씨로 미리 볼 수 있다.
+/* ---------------- 배경 눈 (서울) ----------------
+ * Open-Meteo(키 불필요)로 서울의 현재 날씨를 받아 눈이 올 때만 배경에 눈을 내린다. 그 밖의 날씨는 배경을 바꾸지 않는다.
+ * 주소에 ?weather=snow를 붙이면 눈 내리는 배경을 미리 볼 수 있다.
  */
 const SEOUL = { lat: 37.5665, lon: 126.978 };
 const WEATHER_TTL = 20 * 60 * 1000;
 
-// WMO 날씨 코드 → [화면 종류, 세기(0~3), 표시 이름]
-function describeWeather(code) {
-  if (code <= 1) return ['clear', 0, code === 0 ? '맑음' : '대체로 맑음'];
-  if (code <= 3) return ['cloudy', 0, code === 2 ? '구름 조금' : '흐림'];
-  if (code === 45 || code === 48) return ['cloudy', 0, '안개'];
-  if (code >= 51 && code <= 57) return ['rain', 1, '이슬비'];
-  if (code >= 61 && code <= 67) return ['rain', code === 61 || code === 66 ? 1 : code === 63 ? 2 : 3, '비'];
-  if (code >= 71 && code <= 77) return ['snow', code === 71 || code === 77 ? 1 : code === 73 ? 2 : 3, '눈'];
-  if (code >= 80 && code <= 82) return ['rain', code - 79, '소나기'];
-  if (code === 85 || code === 86) return ['snow', code === 85 ? 2 : 3, '눈'];
-  if (code >= 95) return ['rain', 3, '뇌우'];
-  return ['clear', 0, ''];
+// WMO 날씨 코드 → 눈의 세기 (0 = 눈 아님)
+function snowLevel(code) {
+  if (code === 71 || code === 77) return 1;
+  if (code === 73 || code === 85) return 2;
+  if (code === 75 || code === 86) return 3;
+  return 0;
 }
 
-const WeatherFx = (() => {
+const SnowFx = (() => {
   const canvas = $('#weatherFx');
   const ctx = canvas.getContext('2d');
-  let kind = 'clear', level = 0, parts = [], raf = 0, running = false, w = 0, h = 0, dpr = 1;
+  let level = 0, flakes = [], raf = 0, running = false, w = 0, h = 0;
 
   function resize() {
-    dpr = Math.min(2, window.devicePixelRatio || 1);
+    const dpr = Math.min(2, window.devicePixelRatio || 1);
     w = innerWidth; h = innerHeight;
     canvas.width = w * dpr; canvas.height = h * dpr;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -1296,37 +1290,24 @@ const WeatherFx = (() => {
   }
   function make(anywhere) {
     const r = Math.random;
-    return kind === 'rain'
-      ? { x: r() * w * 1.2 - w * 0.1, y: anywhere ? r() * h : -30, len: 12 + r() * 16, v: 10 + r() * 8, a: .18 + r() * .3 }
-      : { x: r() * w, y: anywhere ? r() * h : -10, s: 1.2 + r() * 2.8, v: .5 + r() * 1.1, p: r() * Math.PI * 2, a: .5 + r() * .45 };
+    return { x: r() * w, y: anywhere ? r() * h : -10, s: 1.2 + r() * 2.8, v: .5 + r() * 1.1, p: r() * Math.PI * 2, a: .5 + r() * .45 };
   }
   function seed() {
-    const area = (w * h) / (1440 * 900);
-    const base = kind === 'rain' ? [0, 90, 170, 280][level] : kind === 'snow' ? [0, 70, 130, 210][level] : 0;
-    parts = Array.from({ length: Math.round(base * area) }, () => make(true));
+    const count = [0, 70, 130, 210][level] * (w * h) / (1440 * 900);
+    flakes = Array.from({ length: Math.round(count) }, () => make(true));
   }
   function frame(t) {
     ctx.clearRect(0, 0, w, h);
-    if (kind === 'rain') {
-      ctx.lineWidth = 1.1;
-      for (const p of parts) {
-        p.y += p.v; p.x += p.v * 0.22;
-        if (p.y > h + 30) Object.assign(p, make(false));
-        ctx.strokeStyle = `rgba(252,246,245,${p.a})`;
-        ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(p.x - p.len * 0.22, p.y - p.len); ctx.stroke();
-      }
-    } else if (kind === 'snow') {
-      for (const p of parts) {
-        p.y += p.v; p.x += Math.sin(t / 1400 + p.p) * 0.45;
-        if (p.y > h + 10) Object.assign(p, make(false));
-        ctx.fillStyle = `rgba(255,255,255,${p.a})`;
-        ctx.beginPath(); ctx.arc(p.x, p.y, p.s, 0, Math.PI * 2); ctx.fill();
-      }
+    for (const f of flakes) {
+      f.y += f.v; f.x += Math.sin(t / 1400 + f.p) * 0.45;
+      if (f.y > h + 10) Object.assign(f, make(false));
+      ctx.fillStyle = `rgba(255,255,255,${f.a})`;
+      ctx.beginPath(); ctx.arc(f.x, f.y, f.s, 0, Math.PI * 2); ctx.fill();
     }
     raf = requestAnimationFrame(frame);
   }
   function start() {
-    if (running || !parts.length || document.hidden) return;
+    if (running || !flakes.length || document.hidden) return;
     running = true; raf = requestAnimationFrame(frame);
   }
   function stop() {
@@ -1336,7 +1317,7 @@ const WeatherFx = (() => {
   document.addEventListener('visibilitychange', () => (document.hidden ? stop() : motionOn() && start()));
   resize();
   return {
-    set(k, lv) { stop(); kind = k; level = lv; seed(); if (motionOn()) start(); },
+    set(lv) { stop(); level = lv; seed(); if (motionOn()) start(); },
     start, stop,
   };
 })();
@@ -1349,39 +1330,27 @@ function setMotion(on) {
   btn.textContent = on ? '배경 움직임 끄기' : '배경 움직임 켜기';
   btn.setAttribute('aria-pressed', String(!on));
   store('yt_motion', on ? 'on' : 'off');
-  if (on) WeatherFx.start(); else WeatherFx.stop();
+  if (on) SnowFx.start(); else SnowFx.stop();
 }
 
-function applyWeather(code, isDay) {
-  const [kind, level, label] = describeWeather(code);
-  const b = document.body.classList;
-  ['weather-clear', 'weather-cloudy', 'weather-rain', 'weather-snow', 'weather-night'].forEach(c => b.remove(c));
-  b.add('weather-' + kind);
-  if (!isDay) b.add('weather-night');
-  WeatherFx.set(kind, level);
-  // 날씨 표시는 따로 두지 않고 배경 버튼에 마우스를 올렸을 때만 알려준다
-  if (label) $('#motionToggle').title = `배경은 서울의 현재 날씨(${label}${isDay ? '' : ', 밤'})에 맞춰 바뀝니다`;
+function applySnow(level) {
+  SnowFx.set(level);
+  $('#motionToggle').title = level ? '서울에 눈이 와서 배경에도 눈이 내립니다' : '';
 }
 
 async function loadWeather() {
-  const preview = new URLSearchParams(location.search);
-  const forced = preview.get('weather');
-  if (forced) {
-    const codes = { clear: 0, cloudy: 3, rain: 63, snow: 73, storm: 95 };
-    return applyWeather(codes[forced] ?? 0, preview.get('night') !== '1');
-  }
+  if (new URLSearchParams(location.search).get('weather') === 'snow') return applySnow(2);
   try {
     const cached = JSON.parse(store('yt_weather') || 'null');
-    if (cached && Date.now() - cached.at < WEATHER_TTL) return applyWeather(cached.code, cached.isDay);
+    if (cached && Date.now() - cached.at < WEATHER_TTL) return applySnow(snowLevel(cached.code));
   } catch { /* 캐시가 깨졌으면 새로 받는다 */ }
   try {
-    const url = `https://api.open-meteo.com/v1/forecast?latitude=${SEOUL.lat}&longitude=${SEOUL.lon}&current=weather_code,is_day&timezone=Asia%2FSeoul`;
-    const d = await (await fetch(url)).json();
-    const code = d.current?.weather_code, isDay = d.current?.is_day === 1;
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=${SEOUL.lat}&longitude=${SEOUL.lon}&current=weather_code&timezone=Asia%2FSeoul`;
+    const code = (await (await fetch(url)).json()).current?.weather_code;
     if (code == null) return;
-    store('yt_weather', JSON.stringify({ at: Date.now(), code, isDay }));
-    applyWeather(code, isDay);
-  } catch { /* 날씨를 못 받으면 기본(맑음) 배경 그대로 둔다 */ }
+    store('yt_weather', JSON.stringify({ at: Date.now(), code }));
+    applySnow(snowLevel(code));
+  } catch { /* 날씨를 못 받으면 눈 없이 기본 배경 그대로 둔다 */ }
 }
 
 /* ---------------- 탭 전환 · 초기화 ---------------- */

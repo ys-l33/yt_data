@@ -749,11 +749,13 @@ let commentData = { video: null, comments: [] };
 const STOPWORDS = new Set(('그리고 그래서 그런데 근데 하지만 그냥 진짜 정말 너무 완전 이거 저거 그거 이건 저건 그건 이게 그게 저게 여기 거기 저는 제가 나는 내가 우리 이런 저런 그런 있는 없는 하는 해서 하고 같아요 같은 있어요 합니다 입니다 ' +
   'the and to is of a in it this that for you i my me so are was be on with just not but have its your').split(' '));
 
+const tokenize = t => t.toLowerCase().split(/[^\p{L}\p{N}]+/u);
+
 function topWords(texts, limit = 40) {
   const freq = new Map();
   for (const t of texts) {
     const seen = new Set();
-    for (const w of t.toLowerCase().split(/[^\p{L}\p{N}]+/u)) {
+    for (const w of tokenize(t)) {
       if (w.length < 2 || STOPWORDS.has(w) || /^[ㅋㅎㅠㅜ]+$/.test(w) || /^\d+$/.test(w) || seen.has(w)) continue;
       seen.add(w);
       freq.set(w, (freq.get(w) || 0) + 1);
@@ -792,7 +794,7 @@ async function runComments() {
     pageToken = d.nextPageToken;
   } while (pageToken && comments.length < max);
 
-  commentData = { video, comments: comments.slice(0, max) };
+  commentData = { video, comments: comments.slice(0, max), filter: null };
   renderComments();
 }
 
@@ -825,8 +827,23 @@ function renderComments() {
   const body = block($('#cResult'), {
     title: video.title,
     sub: `${esc(video.channelTitle)} · 조회수 ${fmt.num(video.views)} · 전체 댓글 ${fmt.num(video.comments)}개 중 ${fmt.num(comments.length)}개 수집`,
-    actions: [{ label: 'CSV 다운로드', run: () => downloadCSV(`댓글_${video.id}`, csvCols, commentData.comments) }],
+    actions: [{
+      label: 'CSV 다운로드',
+      run: () => {
+        const f = commentData.filter;
+        downloadCSV(`댓글_${video.id}${f ? '_' + f.value : ''}`, csvCols, f ? visible() : comments);
+      },
+    }],
   });
+
+  // 단어(토큰 일치) 또는 언급 키워드(부분 일치)로 댓글 거르기. 자주 쓰인 단어의 개수와 같은 기준이다.
+  const tokenSets = comments.map(c => new Set(tokenize(c.text)));
+  const matches = (f, i) => (f.kind === 'word' ? tokenSets[i].has(f.value) : lower[i].includes(f.value.toLowerCase()));
+  const visible = () => {
+    const f = commentData.filter;
+    return f ? comments.filter((_, i) => matches(f, i)) : comments;
+  };
+  if (commentData.filter?.kind === 'kw' && !keywords.includes(commentData.filter.value)) commentData.filter = null;
 
   const likes = comments.map(c => c.likes);
   const words = topWords(comments.map(c => c.text));
@@ -839,13 +856,39 @@ function renderComments() {
   ]) + `
     <div class="two-col">
       <div><h4>자주 쓰인 단어 <span class="muted">(댓글 수 기준)</span></h4>
-        <div class="chips">${words.map(([w, n]) => `<span class="chip">${esc(w)}<b>${n}</b></span>`).join('') || '<span class="muted">-</span>'}</div></div>
+        <div class="chips">${words.map(([w, n]) => `<button type="button" class="chip" data-kind="word" data-value="${esc(w)}">${esc(w)}<b>${n}</b></button>`).join('') || '<span class="muted">-</span>'}</div></div>
       <div><h4>언급 키워드</h4>
-        ${keywords.length ? `<div class="chips">${mentions.map(([k, n]) => `<span class="chip">${esc(k)}<b>${n}개 · ${fmt.pct(comments.length ? n / comments.length : 0)}</b></span>`).join('')}</div>`
+        ${keywords.length ? `<div class="chips">${mentions.map(([k, n]) => `<button type="button" class="chip" data-kind="kw" data-value="${esc(k)}">${esc(k)}<b>${n}개 · ${fmt.pct(comments.length ? n / comments.length : 0)}</b></button>`).join('')}</div>`
           : '<span class="muted">위 “언급 키워드” 칸에 브랜드명·제품명을 입력하면 언급 댓글 수와 비율을 보여줍니다. 입력 후 다시 수집할 필요는 없습니다.</span>'}</div>
     </div>
+    <div class="cfilter"></div>
     <div class="ctable"></div>`;
-  renderTable($('.ctable', body), cols, comments);
+
+  const applyFilter = () => {
+    const f = commentData.filter;
+    body.querySelectorAll('.chip[data-kind]').forEach(c => {
+      const on = !!f && c.dataset.kind === f.kind && c.dataset.value === f.value;
+      c.classList.toggle('on', on);
+      c.setAttribute('aria-pressed', on);
+    });
+    const rows = visible();
+    $('.cfilter', body).innerHTML = f
+      ? `<span><b>“${esc(f.value)}”</b> ${f.kind === 'word' ? '포함' : '언급'} 댓글 ${fmt.num(rows.length)}개 표시 중</span><button type="button" class="ghost small" data-clear>필터 해제</button>`
+      : '<span class="muted">단어를 누르면 그 단어가 들어간 댓글만 볼 수 있습니다.</span>';
+    renderTable($('.ctable', body), cols, rows);
+  };
+  body.querySelector('.two-col').onclick = e => {
+    const chip = e.target.closest('.chip[data-kind]');
+    if (!chip) return;
+    const f = commentData.filter;
+    const same = f && f.kind === chip.dataset.kind && f.value === chip.dataset.value;
+    commentData.filter = same ? null : { kind: chip.dataset.kind, value: chip.dataset.value };
+    applyFilter();
+  };
+  $('.cfilter', body).onclick = e => {
+    if (e.target.closest('[data-clear]')) { commentData.filter = null; applyFilter(); }
+  };
+  applyFilter();
 }
 
 /* ---------------- 탭: 설정 ---------------- */

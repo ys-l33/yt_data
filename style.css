@@ -263,6 +263,12 @@ td.text { min-width: 320px; max-width: 640px; white-space: pre-wrap; word-break:
 
 .chips { display: flex; flex-wrap: wrap; gap: 6px; }
 .chip { padding: 3px 11px; border: 1px solid var(--rule-2); border-radius: 999px; font-size: 13px; background: var(--paper-hi); }
+button.chip { font: inherit; font-size: 13px; color: var(--ink); cursor: pointer; transition: background .15s, border-color .15s; }
+button.chip:hover { border-color: var(--ink); background: var(--tint); }
+button.chip.on { background: var(--ink); border-color: var(--ink); color: var(--ivory); }
+button.chip.on b { color: var(--tint-2); }
+button.chip:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
+.cfilter { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; min-height: 34px; margin-bottom: 10px; font-size: 13px; }
 .chip b { margin-left: 5px; font-family: var(--f-cond); font-weight: 500; font-size: 14px; color: var(--ink-2); }
 .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 22px; }
 .two-col h4 { margin: 0 0 10px; font-family: var(--f-title); font-size: 15px; }

@@ -774,7 +774,11 @@ async function runSearch() {
     if (from) publishedAfter = new Date(`${from}T00:00:00`).toISOString();
     if (to) publishedBefore = new Date(`${to}T23:59:59.999`).toISOString();
   } else if (period) {
-    publishedAfter = new Date(Date.now() - +period * 864e5).toISOString();
+    // "최근 N일"은 N일 전 날짜의 0시(내 시간대)부터 지금까지로 본다
+    const start = new Date();
+    start.setHours(0, 0, 0, 0);
+    start.setDate(start.getDate() - +period);
+    publishedAfter = start.toISOString();
   }
 
   const session = {

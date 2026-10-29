@@ -36,7 +36,7 @@ function renderStatus() {
   else { ks.textContent = 'API 키 없음'; ks.className = 'pill warn'; }
   const used = quotaUsed();
   const q = $('#quota');
-  q.textContent = `오늘 ${used.toLocaleString()} / ${DAILY_QUOTA.toLocaleString()}`;
+  q.textContent = `오늘 약 ${used.toLocaleString()} / ${DAILY_QUOTA.toLocaleString()}`;
   q.className = 'pill' + (used > DAILY_QUOTA * 0.8 ? ' warn' : '');
 }
 

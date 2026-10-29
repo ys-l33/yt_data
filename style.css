@@ -62,7 +62,8 @@ h2 { font-family: var(--f-title); font-size: 19px; margin-bottom: 14px; }
   font-size: 52px; line-height: 1; letter-spacing: -.025em;
   color: var(--ivory);
 }
-.status { display: flex; gap: 6px; flex-wrap: wrap; }
+.status { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+.quota-note { flex-basis: 100%; margin: 2px 0 0; text-align: right; font-size: 11.5px; color: var(--ink); }
 #keyStatus { cursor: pointer; }
 .pill {
   padding: 3px 10px; font-size: 12px; font-weight: 600;
@@ -316,6 +317,8 @@ body.modal-open { overflow: hidden; }
   .top, .tabs, main { margin-left: 12px; margin-right: 12px; }
   .top { padding-top: 24px; padding-bottom: 18px; }
   .wordmark { font-size: 36px; }
+  .status { justify-content: flex-start; }
+  .quota-note { text-align: left; }
   .tabs button { padding: 10px 13px; }
   main { padding: 24px 16px 40px 40px; }
   main::before, main::after { left: 14px; width: 12px; height: 12px; }

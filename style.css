@@ -50,29 +50,40 @@ h2 { font-family: var(--f-title); font-size: 19px; margin-bottom: 14px; }
   letter-spacing: .14em; text-transform: uppercase;
 }
 
-/* ---------- 배경 조명: 잎 사이로 드는 햇빛처럼 은은하게 일렁이는 빛 ---------- */
+/* ---------- 배경 조명: 잎 사이로 드는 햇빛처럼 일렁이는 빛 ----------
+ * 큰 빛(span)은 천천히 흐르고, 작은 빛 조각(i)은 짧게 밝아졌다 흐려진다.
+ * 종이 뒤 여백과 아래쪽에 두고, 제목 뒤는 피해 글자 대비를 지킨다. */
 .ambient { position: fixed; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; }
-.ambient span {
+.ambient span, .ambient i {
   position: absolute; border-radius: 50%;
-  background: radial-gradient(closest-side, rgba(255, 255, 255, .22), rgba(255, 255, 255, .08) 55%, rgba(255, 255, 255, 0));
   will-change: transform, opacity;
-  animation: sway 26s ease-in-out infinite alternate;
+  animation: sway 18s ease-in-out infinite alternate;
 }
-.ambient span:nth-child(1) { width: 70vmax; height: 52vmax; left: -18vmax; top: -16vmax; }
-.ambient span:nth-child(2) { width: 54vmax; height: 40vmax; right: -14vmax; top: 6vh; animation-duration: 34s; animation-delay: -9s; }
-.ambient span:nth-child(3) { width: 46vmax; height: 34vmax; left: 22vw; bottom: -18vmax; animation-duration: 29s; animation-delay: -15s; }
-.ambient span:nth-child(4) { width: 30vmax; height: 22vmax; left: 8vw; top: 46vh; animation-name: flicker; animation-duration: 19s; animation-delay: -4s; }
-.ambient span:nth-child(5) { width: 26vmax; height: 20vmax; right: 6vw; bottom: 8vh; animation-name: flicker; animation-duration: 23s; animation-delay: -11s; }
+.ambient span { background: radial-gradient(closest-side, rgba(255, 255, 255, .5), rgba(255, 255, 255, .2) 50%, rgba(255, 255, 255, 0)); }
+.ambient i { background: radial-gradient(closest-side, rgba(255, 255, 255, .75), rgba(252, 246, 245, .3) 45%, rgba(255, 255, 255, 0)); animation-name: glint; }
+.ambient span:nth-child(1) { width: 60vmax; height: 44vmax; left: -26vmax; top: 22vh; }
+.ambient span:nth-child(2) { width: 52vmax; height: 38vmax; right: -24vmax; top: -4vh; animation-duration: 22s; animation-delay: -7s; }
+.ambient span:nth-child(3) { width: 64vmax; height: 40vmax; left: 10vw; bottom: -30vmax; animation-duration: 20s; animation-delay: -12s; }
+.ambient span:nth-child(4) { width: 40vmax; height: 30vmax; right: -16vmax; bottom: -6vh; animation-duration: 16s; animation-delay: -3s; }
+.ambient span:nth-child(5) { width: 36vmax; height: 26vmax; left: -14vmax; bottom: -10vh; animation-duration: 24s; animation-delay: -16s; }
+.ambient i:nth-of-type(1) { width: 12vmax; height: 9vmax; left: 1vw; top: 30vh; animation-duration: 7s; }
+.ambient i:nth-of-type(2) { width: 9vmax; height: 7vmax; right: 1vw; top: 22vh; animation-duration: 9s; animation-delay: -3s; }
+.ambient i:nth-of-type(3) { width: 14vmax; height: 10vmax; left: 30vw; bottom: 2vh; animation-duration: 11s; animation-delay: -5s; }
+.ambient i:nth-of-type(4) { width: 10vmax; height: 8vmax; right: 3vw; top: 62vh; animation-duration: 8s; animation-delay: -1s; }
+.ambient i:nth-of-type(5) { width: 8vmax; height: 6vmax; left: 3vw; top: 72vh; animation-duration: 10s; animation-delay: -6s; }
+.ambient i:nth-of-type(6) { width: 11vmax; height: 8vmax; right: 24vw; bottom: 0; animation-duration: 12s; animation-delay: -8s; }
 @keyframes sway {
-  0%   { transform: translate(0, 0) rotate(0deg) scale(1);       opacity: .75; }
-  50%  { transform: translate(4vw, 3vh) rotate(8deg) scale(1.08); opacity: 1; }
-  100% { transform: translate(-3vw, 5vh) rotate(-6deg) scale(.95); opacity: .6; }
+  0%   { transform: translate(0, 0) rotate(0deg) scale(1);         opacity: .55; }
+  35%  { transform: translate(7vw, -4vh) rotate(10deg) scale(1.12); opacity: 1; }
+  70%  { transform: translate(-4vw, 6vh) rotate(-8deg) scale(.92);  opacity: .7; }
+  100% { transform: translate(5vw, 3vh) rotate(4deg) scale(1.06);   opacity: .95; }
 }
-@keyframes flicker {
-  0%   { transform: translate(0, 0) scale(1);      opacity: .35; }
-  30%  { transform: translate(2vw, -2vh) scale(1.1); opacity: .9; }
-  60%  { transform: translate(-1vw, 1vh) scale(.95); opacity: .5; }
-  100% { transform: translate(3vw, 2vh) scale(1.05); opacity: .8; }
+@keyframes glint {
+  0%   { transform: translate(0, 0) scale(.9);       opacity: .1; }
+  25%  { transform: translate(1.5vw, -1vh) scale(1.1); opacity: 1; }
+  50%  { transform: translate(-1vw, 1.5vh) scale(1);   opacity: .35; }
+  75%  { transform: translate(2vw, .5vh) scale(1.15);  opacity: .9; }
+  100% { transform: translate(-.5vw, -1vh) scale(.95); opacity: .2; }
 }
 .top, .tabs, main { position: relative; z-index: 1; }
 

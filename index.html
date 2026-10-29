@@ -19,10 +19,6 @@
     </div>
   </header>
 
-  <div class="folder">
-    <div class="band" aria-hidden="true"></div>
-    <div class="paper-under one" aria-hidden="true"></div>
-    <div class="paper-under two" aria-hidden="true"></div>
   <nav class="tabs" role="tablist">
     <button role="tab" data-tab="channels" class="active"><span class="no">01</span>채널별 비교</button>
     <button role="tab" data-tab="videos"><span class="no">02</span>영상 분석</button>
@@ -32,17 +28,6 @@
   </nav>
 
   <main>
-    <svg class="clip" viewBox="0 0 96 80" aria-hidden="true">
-      <defs><linearGradient id="clipMetal" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2A6B47"/><stop offset=".45" stop-color="#0E3B23"/><stop offset="1" stop-color="#082616"/></linearGradient></defs>
-      <path class="clip-wire-shadow" d="M25 42 L19 8 Q18 4 22 4 L74 4 Q78 4 77 8 L71 42"/>
-      <path class="clip-wire" d="M24 40 L18 6 Q17 2 21 2 L75 2 Q79 2 78 6 L72 40"/>
-      <path d="M10 30h76a5 5 0 0 1 5 5v30a7 7 0 0 1-7 7H12a7 7 0 0 1-7-7V35a5 5 0 0 1 5-5z" fill="url(#clipMetal)"/>
-      <rect x="13" y="34" width="70" height="3" rx="1.5" fill="#FCF6F5" opacity=".22"/>
-      <path d="M12 60h72" stroke="#000" stroke-opacity=".25" stroke-width="1"/>
-    </svg>
-    <svg class="paperclip" viewBox="0 0 28 84" aria-hidden="true">
-      <path d="M9 24v36a5 5 0 0 0 10 0V14a8.5 8.5 0 0 0-17 0v52a12 12 0 0 0 24 0V26"/>
-    </svg>
     <!-- 채널 분석 -->
     <section id="tab-channels" class="panel active">
       <div class="panel-head"><span class="kicker">(01) — CHANNELS</span><h2 class="title">채널별 비교</h2></div>
@@ -239,7 +224,6 @@
       </div>
     </section>
   </main>
-  </div>
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
   <div id="keyModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="keyModalTitle" hidden>

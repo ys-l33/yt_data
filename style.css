@@ -203,8 +203,8 @@ button:focus-visible, .tabs button:focus-visible { outline: 2px solid var(--gree
 .stat:hover { background-color: var(--tint); }
 .stat .label { color: var(--ink-2); font-size: 12px; font-weight: 600; }
 .stat .value {
-  font-family: var(--f-display); font-weight: 400; font-variation-settings: "opsz" 72, "SOFT" 50;
-  font-size: 30px; line-height: 1.15; margin-top: 4px; letter-spacing: -.01em;
+  font-family: var(--f-cond); font-weight: 500;
+  font-size: 34px; line-height: 1.1; margin-top: 4px; letter-spacing: .005em;
   font-variant-numeric: lining-nums tabular-nums;
 }
 .stat .sub { color: var(--ink-2); font-size: 12px; margin-top: 2px; }
@@ -263,7 +263,7 @@ td.text { min-width: 320px; max-width: 640px; white-space: pre-wrap; word-break:
 
 .chips { display: flex; flex-wrap: wrap; gap: 6px; }
 .chip { padding: 3px 11px; border: 1px solid var(--rule-2); border-radius: 999px; font-size: 13px; background: var(--paper-hi); }
-.chip b { margin-left: 5px; font-family: var(--f-display); font-style: italic; font-weight: 400; color: var(--ink-2); }
+.chip b { margin-left: 5px; font-family: var(--f-cond); font-weight: 500; font-size: 14px; color: var(--ink-2); }
 .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 22px; }
 .two-col h4 { margin: 0 0 10px; font-family: var(--f-title); font-size: 15px; }
 

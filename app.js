@@ -1324,13 +1324,52 @@ const SnowFx = (() => {
 
 const motionOn = () => !document.body.classList.contains('motion-off');
 
+// 배경 빛이 화면 전체를 천천히 떠다니게 한다. 빛마다 주기가 다른 사인파 두 개를 겹쳐
+// 서로 맞물리지 않는 느린 경로를 만들고, 밝기도 따로 숨 쉬듯 바뀐다.
+const LightDrift = (() => {
+  const TAU = Math.PI * 2;
+  const rnd = (a, b) => a + Math.random() * (b - a);
+  const lights = [...document.querySelectorAll('.ambient span, .ambient i')].map(el => {
+    const small = el.tagName === 'I';
+    const px = small ? rnd(25, 45) : rnd(45, 90);   // 가로로 한 번 오가는 데 걸리는 초
+    const py = px * rnd(0.7, 1.3);
+    return {
+      el, small, w: 0, h: 0,
+      x: [px, px * rnd(0.3, 0.45), rnd(0, TAU), rnd(0, TAU)],
+      y: [py, py * rnd(0.3, 0.45), rnd(0, TAU), rnd(0, TAU)],
+      glow: [small ? rnd(6, 11) : rnd(14, 24), rnd(0, TAU)],
+    };
+  });
+  let raf = 0, running = false;
+  const measure = () => lights.forEach(l => { l.w = l.el.offsetWidth; l.h = l.el.offsetHeight; });
+  // 0~1 범위를 약간 넘나들어 가장자리 밖까지 흘러갔다 돌아온다
+  const path = ([p1, p2, a, b], t) => 0.5 + 0.44 * Math.sin(TAU * t / p1 + a) + 0.12 * Math.sin(TAU * t / p2 + b);
+  function render(ms) {
+    const t = ms / 1000, W = innerWidth, H = innerHeight;
+    for (const l of lights) {
+      const x = path(l.x, t) * W - l.w / 2, y = path(l.y, t) * H - l.h / 2;
+      const g = 0.5 + 0.5 * Math.sin(TAU * t / l.glow[0] + l.glow[1]);
+      l.el.style.transform = `translate3d(${x.toFixed(1)}px, ${y.toFixed(1)}px, 0)`;
+      l.el.style.opacity = (l.small ? 0.2 + 0.8 * g : 0.55 + 0.45 * g).toFixed(3);
+    }
+  }
+  function frame(ms) { render(ms); raf = requestAnimationFrame(frame); }
+  addEventListener('resize', () => { measure(); render(performance.now()); });
+  document.addEventListener('visibilitychange', () => (document.hidden ? stop() : motionOn() && start()));
+  function start() { if (!running && !document.hidden) { running = true; raf = requestAnimationFrame(frame); } }
+  function stop() { running = false; cancelAnimationFrame(raf); }
+  measure();
+  render(performance.now()); // 꺼진 상태에서도 빛이 화면 곳곳에 놓이도록 한 번 그린다
+  return { start, stop };
+})();
+
 function setMotion(on) {
   document.body.classList.toggle('motion-off', !on);
   const btn = $('#motionToggle');
   btn.textContent = on ? '배경 움직임 끄기' : '배경 움직임 켜기';
   btn.setAttribute('aria-pressed', String(!on));
   store('yt_motion', on ? 'on' : 'off');
-  if (on) SnowFx.start(); else SnowFx.stop();
+  if (on) { SnowFx.start(); LightDrift.start(); } else { SnowFx.stop(); LightDrift.stop(); }
 }
 
 function applySnow(level) {

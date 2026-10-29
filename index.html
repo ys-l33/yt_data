@@ -23,7 +23,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@0,300;0,500;1,300&family=Fraunces:ital,opsz,wght,SOFT,WONK@0,9..144,300..600,0..100,0..1;1,9..144,300..600,0..100,0..1&family=Gowun+Batang:wght@400;700&display=swap">
-  <link rel="stylesheet" href="style.css?v=20261029-31">
+  <link rel="stylesheet" href="style.css?v=20261029-32">
 </head>
 <body>
   <div class="ambient" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span><i></i><i></i><i></i><i></i><i></i><i></i></div>
@@ -118,6 +118,13 @@
               <option value="short">쇼츠만</option>
             </select>
           </label>
+          <span class="info-wrap" id="chTypeInfoWrap" hidden>
+            <button type="button" class="info-btn" data-pop="chTypePop" aria-label="쇼츠 판별 기준" aria-expanded="false" aria-controls="chTypePop">i</button>
+            <div id="chTypePop" class="info-pop align-left" role="dialog" aria-label="쇼츠 판별 기준" hidden>
+              YouTube 기준에 따라 세로 또는 정사각형이면서 3분 이하인 영상을 쇼츠로 봅니다. 2024년 10월 15일 이전에 올라온 영상은 1분 이하가 기준입니다. 화면비와 길이는 API로 받은 값으로 확인합니다.
+              <small>(※ 화면비 정보가 없는 영상은 60초 이하이거나 제목·설명에 #shorts가 있으면 쇼츠로 추정하고, 형식 옆에 *를 표시합니다.)</small>
+            </div>
+          </span>
           <span class="muted">여러 채널의 지표를 한 번에 모아 볼 때 유용합니다. 단일 채널 분석도 가능합니다.</span>
           <button id="chRun" class="primary">분석하기</button>
         </div>
@@ -216,7 +223,7 @@
             <select id="sCount" aria-labelledby="sCountLabel"><option>25</option><option selected>50</option><option>100</option><option>150</option><option value="custom">직접 입력</option></select>
             <div id="sCountCustomRow" class="count-custom" hidden>
               <input id="sCountCustom" type="number" min="1" max="500" step="1" placeholder="1~500" aria-label="결과 수 직접 입력">
-              <button type="button" id="sCountInfo" class="info-btn" aria-label="결과 수를 500건까지로 둔 이유" aria-expanded="false" aria-controls="sCountPop">i</button>
+              <button type="button" id="sCountInfo" class="info-btn" data-pop="sCountPop" aria-label="결과 수를 500건까지로 둔 이유" aria-expanded="false" aria-controls="sCountPop">i</button>
               <div id="sCountPop" class="info-pop" role="dialog" aria-label="결과 수 안내" hidden>
                 유튜브 서버 자체에서 한 번에 제공하는 데이터가 약 500개로 제한되어 있으며, 일일 API 할당량 보호를 위해 500개까지만 수집하는 것을 권장합니다.
                 <small>(※ 필터 조건을 걸면 수집량이 500개보다 적을 수 있으며, ‘더 검색하기’로 이어서 시도해 볼 수는 있습니다.)</small>

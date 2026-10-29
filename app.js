@@ -459,7 +459,7 @@ const statCards = items => `<div class="stats">${items.map(([label, value, sub])
 
 const titleCol = { key: 'title', label: '제목', type: 'text', cls: 'title', html: r => `<a href="${esc(r.url)}" target="_blank" rel="noopener">${esc(r.title)}</a>` };
 const channelCol = { key: 'title', label: '채널', type: 'text', cls: 'left', html: r => `<div class="chcell">${r.thumb ? `<img src="${esc(r.thumb)}" alt="" loading="lazy">` : ''}<div><a href="${esc(r.url)}" target="_blank" rel="noopener">${esc(r.title)}</a><div class="muted">${esc(r.handle)}</div></div></div>` };
-const formatCol = { key: 'format', label: '형식', type: 'text', html: r => `<span class="tag ${r.isShort ? 'short' : ''}" title="${r.shortCheck === '추정' ? '길이·#shorts 기준 추정' : ''}">${esc(r.format)}${r.shortCheck === '추정' ? '*' : ''}</span>` };
+const formatCol = { key: 'format', label: '형식', type: 'text', html: r => `<span class="tag ${r.isLive ? '' : r.isShort ? 'short' : 'long'}" title="${r.shortCheck === '추정' ? '길이·#shorts 기준 추정' : ''}">${esc(r.format)}${r.shortCheck === '추정' ? '*' : ''}</span>` };
 
 const videoCols = (withChannel) => [
   titleCol,
@@ -528,8 +528,7 @@ function viewsChart(vids) {
   const bw = (W - L - R) / data.length;
   const y = v => T + (H - T - B) * (1 - v / max);
   const avg = mean(data.map(v => v.views)), med = median(data.map(v => v.views));
-  // 쇼츠는 색을 하나 더 쓰는 대신 빗금으로 구분한다
-  let svg = `<defs><pattern id="hatch" width="5" height="5" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="5" height="5" class="hatch-bg"/><line x1="0" y1="0" x2="0" y2="5" class="hatch-line"/></pattern></defs>`;
+  let svg = '';
   for (let i = 0; i <= 4; i++) {
     const v = (max * i) / 4, yy = y(v);
     svg += `<line class="grid-line" x1="${L}" x2="${W - R}" y1="${yy}" y2="${yy}"/><text class="axis" x="${L - 6}" y="${yy + 4}" text-anchor="end">${fmt.compact(v)}</text>`;
@@ -596,7 +595,7 @@ function bindChartTips(root, vids) {
     wrap.querySelectorAll('.col.active').forEach(c => c.classList.remove('active'));
   };
 
-  wrap.addEventListener('mouseover', e => {
+  wrap.addEventListener('pointerover', e => {
     const col = e.target.closest('.col');
     if (col && pinned == null) show(+col.dataset.i, false);
   });
@@ -624,6 +623,13 @@ function bindChartTips(root, vids) {
 }
 
 /* ---------------- 탭: 채널 분석 ---------------- */
+
+// 분석 대상이 "쇼츠만"일 때만 쇼츠 판별 기준 ⓘ 버튼을 보인다
+function syncChTypeInfo() {
+  const show = $('#chType').value === 'short';
+  $('#chTypeInfoWrap').hidden = !show;
+  if (!show) toggleInfo('chTypePop', false);
+}
 
 let channelResults = [];
 
@@ -804,11 +810,16 @@ async function runVideos() {
 
 let searchResults = [];
 
-// 결과 수 "직접 입력" 옆 ⓘ 버튼의 안내 창
-function toggleCountInfo(open = $('#sCountPop').hidden) {
-  $('#sCountPop').hidden = !open;
-  $('#sCountInfo').setAttribute('aria-expanded', String(open));
+// ⓘ 버튼(data-pop)의 안내 창. 한 번에 하나만 열리고, 바깥을 누르거나 Esc로 닫힌다.
+function toggleInfo(popId, open = $('#' + popId).hidden) {
+  document.querySelectorAll('.info-btn[data-pop]').forEach(btn => {
+    const isThis = btn.dataset.pop === popId, show = isThis && open;
+    $('#' + btn.dataset.pop).hidden = !show;
+    btn.setAttribute('aria-expanded', String(show));
+  });
 }
+const closeInfos = () => document.querySelectorAll('.info-pop:not([hidden])').forEach(p => toggleInfo(p.id, false));
+const toggleCountInfo = open => toggleInfo('sCountPop', open);
 
 // YouTube 검색은 한 검색어당 최대 500건 정도까지만 결과를 준다
 const SEARCH_MAX = 500;
@@ -1571,7 +1582,7 @@ function restoreRecent(item) {
     if (el.type === 'checkbox') el.checked = v; else el.value = v;
   }
   if (item.tab === 'search') updateSearchCost();
-  if (item.tab === 'channels') $('#chScopeWrap').hidden = $('#chSort').value === 'recent';
+  if (item.tab === 'channels') { $('#chScopeWrap').hidden = $('#chSort').value === 'recent'; syncChTypeInfo(); }
   switchTab(item.tab);
   window.scrollTo({ top: 0 });
   toast('그때 입력한 내용을 채웠습니다. 실행 버튼을 눌러 주세요.');
@@ -1665,7 +1676,7 @@ function resetPanel(name) {
   });
   panel.querySelectorAll('.status-line').forEach(el => setStatus('#' + el.id, ''));
   PANEL_RESULTS[name].forEach(sel => { $(sel).innerHTML = ''; });
-  if (name === 'channels') { channelResults = []; $('#chScopeWrap').hidden = true; }
+  if (name === 'channels') { channelResults = []; $('#chScopeWrap').hidden = true; syncChTypeInfo(); }
   if (name === 'videos') videoResults = [];
   if (name === 'search') { searchSession = null; searchResults = []; updateSearchCost(); }
   if (name === 'comments') commentData = { video: null, comments: [] };
@@ -1688,6 +1699,7 @@ function init() {
   });
   $('#chRun').onclick = () => run($('#chRun'), '#chStatus', runChannels);
   $('#chSort').onchange = () => { $('#chScopeWrap').hidden = $('#chSort').value === 'recent'; };
+  $('#chType').onchange = syncChTypeInfo;
   $('#vRun').onclick = () => run($('#vRun'), '#vStatus', runVideos);
   $('#sRun').onclick = () => run($('#sRun'), '#sStatus', runSearch);
   $('#cRun').onclick = () => run($('#cRun'), '#cStatus', runComments);
@@ -1699,9 +1711,11 @@ function init() {
   $('#cKeywords').oninput = () => renderComments();
   ['#sType', '#sCount', '#sPeriod'].forEach(s => { $(s).onchange = updateSearchCost; });
   $('#sCountCustom').oninput = updateSearchCost;
-  $('#sCountInfo').onclick = e => { e.stopPropagation(); toggleCountInfo(); };
-  document.addEventListener('click', e => { if (!$('#sCountPop').hidden && !e.target.closest('#sCountPop')) toggleCountInfo(false); });
-  document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('#sCountPop').hidden) toggleCountInfo(false); });
+  document.querySelectorAll('.info-btn[data-pop]').forEach(btn => {
+    btn.onclick = e => { e.preventDefault(); e.stopPropagation(); toggleInfo(btn.dataset.pop); };
+  });
+  document.addEventListener('click', e => { if (!e.target.closest('.info-pop')) closeInfos(); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeInfos(); });
   $('#sCountCustom').onkeydown = e => { if (e.key === 'Enter') $('#sRun').click(); };
   updateSearchCost();
   initSettings();

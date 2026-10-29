@@ -13,6 +13,9 @@
   --tint-2: color-mix(in srgb, var(--green) 22%, var(--ivory));
   --paper-hi: #FFFCFB;
   --error: #A0402F;
+  /* 영상 형식 색: 차트 막대·형식 태그·범례가 같은 색을 쓴다 */
+  --c-long: var(--green);
+  --c-short: #9FDABA;
 
   --f-display: "Fraunces", "Gowun Batang", Georgia, serif;
   --f-title: "Gowun Batang", "Fraunces", serif;
@@ -177,6 +180,9 @@ main::after { bottom: 64px; }
   padding: 12px 14px; background: var(--ink); color: var(--ivory); font-size: 12.5px; line-height: 1.6; word-break: keep-all;
   box-shadow: 0 12px 24px -12px rgba(9, 40, 24, .6);
 }
+.info-wrap { position: relative; display: inline-flex; }
+.info-pop.align-left { right: auto; left: -8px; }
+.info-pop.align-left::before { right: auto; left: 14px; }
 .info-pop::before { content: ""; position: absolute; top: -6px; right: 8px; border: 6px solid transparent; border-top: 0; border-bottom-color: var(--ink); }
 .info-pop small { display: block; margin-top: 6px; font-size: 11.5px; opacity: .8; }
 .exclude-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px 14px; }
@@ -289,10 +295,8 @@ td.text { min-width: 320px; max-width: 640px; white-space: pre-wrap; word-break:
   border: 1px solid var(--rule-2); color: var(--ink);
   white-space: nowrap;
 }
-.tag.short {
-  border-color: var(--green);
-  background: repeating-linear-gradient(45deg, rgba(43, 174, 102, .28) 0 1.5px, transparent 1.5px 4px);
-}
+.tag.long { background: var(--c-long); border-color: var(--c-long); }
+.tag.short { background: var(--c-short); border-color: var(--c-short); }
 
 /* ---------- 차트 ---------- */
 .chart-wrap { margin-bottom: 22px; padding: 16px 16px 12px; border: 1px solid var(--rule); background: var(--paper-hi); }
@@ -300,14 +304,14 @@ td.text { min-width: 320px; max-width: 640px; white-space: pre-wrap; word-break:
 .chart .grid-line { stroke: var(--rule); stroke-width: 1; }
 .chart .axis { fill: var(--ink-2); font-size: 11px; font-family: var(--f-body); }
 .chart .bar { fill: var(--green); transition: opacity .15s; }
-.chart .bar.short { fill: url(#hatch); stroke: var(--green); stroke-width: 1; }
-.chart .hatch-bg { fill: var(--paper-hi); }
-.chart .hatch-line { stroke: var(--green); stroke-width: 2.6; }
+.chart .bar { fill: var(--c-long); }
+.chart .bar.short { fill: var(--c-short); }
+.chart .hit, .chart .bar { pointer-events: all; }
 .chart .col { cursor: pointer; }
 .chart .hit { fill: transparent; }
 .chart .col:hover .hit, .chart .col.active .hit { fill: rgba(14, 59, 35, .06); }
 .chart .col.active .bar { fill: var(--ink); }
-.chart .col.active .bar.short { fill: url(#hatch); stroke: var(--ink); stroke-width: 2; }
+.chart .col.active .bar.short { fill: var(--ink); }
 .chart-wrap { position: relative; }
 .chart-tip {
   position: absolute; z-index: 3; width: 260px; padding: 12px 14px;
@@ -331,8 +335,8 @@ td.text { min-width: 320px; max-width: 640px; white-space: pre-wrap; word-break:
 .legend { display: flex; gap: 18px; flex-wrap: wrap; color: var(--ink-2); font-size: 12px; margin-top: 10px; }
 .legend i { display: inline-block; margin-right: 6px; vertical-align: -1px; }
 .legend .sw { width: 10px; height: 10px; }
-.legend .sw.long { background: var(--green); }
-.legend .sw.short { border: 1px solid var(--green); background: repeating-linear-gradient(45deg, var(--green) 0 1.5px, var(--paper-hi) 1.5px 3.5px); }
+.legend .sw.long { background: var(--c-long); }
+.legend .sw.short { background: var(--c-short); }
 .legend .ln { width: 16px; height: 0; vertical-align: 3px; border-top: 2px dashed var(--ink); }
 .legend .ln.med { border-top: 2px dotted var(--ink-2); }
 

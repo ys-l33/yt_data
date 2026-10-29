@@ -82,7 +82,7 @@ async function yt(endpoint, params) {
 // 할당량이 도중에 떨어지면 그때까지 받은 결과는 살려서 보여주고 안내한다
 const QUOTA_RESET = '태평양 시간 자정(한국 시간 오후 4~5시)에 초기화됩니다.';
 const isQuotaError = e => /quotaExceeded|dailyLimitExceeded/i.test(e?.reason || '');
-const quotaNotice = (sel, what) => setStatus(sel, `할당량이 떨어져서 ${what} ${QUOTA_RESET}`, 'error');
+const quotaNotice = (sel, what) => setStatus(sel, `할당량이 소진되어 ${what} ${QUOTA_RESET}`, 'error');
 
 const chunk = (arr, n) => Array.from({ length: Math.ceil(arr.length / n) }, (_, i) => arr.slice(i * n, i * n + n));
 const unique = arr => [...new Set(arr)];

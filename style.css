@@ -85,6 +85,26 @@ h2 { font-family: var(--f-title); font-size: 19px; margin-bottom: 14px; }
   75%  { transform: translate(2vw, .5vh) scale(1.15);  opacity: .9; }
   100% { transform: translate(-.5vw, -1vh) scale(.95); opacity: .2; }
 }
+/* 날씨: 비·눈 입자는 캔버스로 그리고, 흐림·비·밤에는 햇빛을 줄이고 하늘을 살짝 어둡게 한다 */
+.weather-fx { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none; }
+.ambient { transition: opacity 2s ease; }
+body::before {
+  content: ""; position: fixed; inset: 0; z-index: 0; pointer-events: none;
+  background: rgba(9, 40, 24, var(--sky-dim, 0)); transition: background 2s ease;
+}
+.weather-cloudy .ambient { opacity: .55; }
+.weather-rain .ambient { opacity: .3; }
+.weather-snow .ambient { opacity: .6; }
+.weather-night .ambient { opacity: .25; }
+.weather-cloudy { --sky-dim: .08; }
+.weather-rain { --sky-dim: .16; }
+.weather-snow { --sky-dim: .05; }
+.weather-night { --sky-dim: .26; }
+.weather-night.weather-rain { --sky-dim: .34; }
+.motion-off .ambient span, .motion-off .ambient i { animation-play-state: paused; }
+.pill-btn { font: inherit; font-size: 12px; font-weight: 600; background: transparent; cursor: pointer; }
+.pill-btn:hover { background: rgba(252, 246, 245, .35); }
+.pill-btn[aria-pressed="true"] { background: var(--ink); color: var(--ivory); }
 .top, .tabs, main { position: relative; z-index: 1; }
 
 /* ---------- 헤더 (잔디 위) ---------- */
@@ -101,7 +121,7 @@ h2 { font-family: var(--f-title); font-size: 19px; margin-bottom: 14px; }
   color: var(--ivory);
 }
 .wordmark .emoji { font-style: normal; font-size: .8em; margin-left: .12em; }
-.status { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+.status { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; max-width: 560px; }
 .quota-note { flex-basis: 100%; margin: 2px 0 0; text-align: right; font-size: 11.5px; color: var(--ink); }
 #keyStatus { cursor: pointer; }
 .pill {

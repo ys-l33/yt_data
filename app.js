@@ -1261,6 +1261,131 @@ function initKeyModal() {
   $('#keyStatus').onclick = () => (getKey() ? switchTab('settings') : openKeyModal());
 }
 
+/* ---------------- 배경 날씨 (서울) ----------------
+ * Open-Meteo(키 불필요)로 서울의 현재 날씨를 받아 비·눈은 캔버스 입자로, 흐림·밤은 하늘 톤으로 보여준다.
+ * 주소에 ?weather=rain|snow|cloudy|clear(&night=1)를 붙이면 그 날씨로 미리 볼 수 있다.
+ */
+const SEOUL = { lat: 37.5665, lon: 126.978 };
+const WEATHER_TTL = 20 * 60 * 1000;
+
+// WMO 날씨 코드 → [화면 종류, 세기(0~3), 표시 이름]
+function describeWeather(code) {
+  if (code <= 1) return ['clear', 0, code === 0 ? '맑음' : '대체로 맑음'];
+  if (code <= 3) return ['cloudy', 0, code === 2 ? '구름 조금' : '흐림'];
+  if (code === 45 || code === 48) return ['cloudy', 0, '안개'];
+  if (code >= 51 && code <= 57) return ['rain', 1, '이슬비'];
+  if (code >= 61 && code <= 67) return ['rain', code === 61 || code === 66 ? 1 : code === 63 ? 2 : 3, '비'];
+  if (code >= 71 && code <= 77) return ['snow', code === 71 || code === 77 ? 1 : code === 73 ? 2 : 3, '눈'];
+  if (code >= 80 && code <= 82) return ['rain', code - 79, '소나기'];
+  if (code === 85 || code === 86) return ['snow', code === 85 ? 2 : 3, '눈'];
+  if (code >= 95) return ['rain', 3, '뇌우'];
+  return ['clear', 0, ''];
+}
+
+const WeatherFx = (() => {
+  const canvas = $('#weatherFx');
+  const ctx = canvas.getContext('2d');
+  let kind = 'clear', level = 0, parts = [], raf = 0, running = false, w = 0, h = 0, dpr = 1;
+
+  function resize() {
+    dpr = Math.min(2, window.devicePixelRatio || 1);
+    w = innerWidth; h = innerHeight;
+    canvas.width = w * dpr; canvas.height = h * dpr;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    seed();
+  }
+  function make(anywhere) {
+    const r = Math.random;
+    return kind === 'rain'
+      ? { x: r() * w * 1.2 - w * 0.1, y: anywhere ? r() * h : -30, len: 12 + r() * 16, v: 10 + r() * 8, a: .18 + r() * .3 }
+      : { x: r() * w, y: anywhere ? r() * h : -10, s: 1.2 + r() * 2.8, v: .5 + r() * 1.1, p: r() * Math.PI * 2, a: .5 + r() * .45 };
+  }
+  function seed() {
+    const area = (w * h) / (1440 * 900);
+    const base = kind === 'rain' ? [0, 90, 170, 280][level] : kind === 'snow' ? [0, 70, 130, 210][level] : 0;
+    parts = Array.from({ length: Math.round(base * area) }, () => make(true));
+  }
+  function frame(t) {
+    ctx.clearRect(0, 0, w, h);
+    if (kind === 'rain') {
+      ctx.lineWidth = 1.1;
+      for (const p of parts) {
+        p.y += p.v; p.x += p.v * 0.22;
+        if (p.y > h + 30) Object.assign(p, make(false));
+        ctx.strokeStyle = `rgba(252,246,245,${p.a})`;
+        ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(p.x - p.len * 0.22, p.y - p.len); ctx.stroke();
+      }
+    } else if (kind === 'snow') {
+      for (const p of parts) {
+        p.y += p.v; p.x += Math.sin(t / 1400 + p.p) * 0.45;
+        if (p.y > h + 10) Object.assign(p, make(false));
+        ctx.fillStyle = `rgba(255,255,255,${p.a})`;
+        ctx.beginPath(); ctx.arc(p.x, p.y, p.s, 0, Math.PI * 2); ctx.fill();
+      }
+    }
+    raf = requestAnimationFrame(frame);
+  }
+  function start() {
+    if (running || !parts.length || document.hidden) return;
+    running = true; raf = requestAnimationFrame(frame);
+  }
+  function stop() {
+    running = false; cancelAnimationFrame(raf); ctx.clearRect(0, 0, w, h);
+  }
+  addEventListener('resize', () => { resize(); if (running) { stop(); start(); } });
+  document.addEventListener('visibilitychange', () => (document.hidden ? stop() : motionOn() && start()));
+  resize();
+  return {
+    set(k, lv) { stop(); kind = k; level = lv; seed(); if (motionOn()) start(); },
+    start, stop,
+  };
+})();
+
+const motionOn = () => !document.body.classList.contains('motion-off');
+
+function setMotion(on) {
+  document.body.classList.toggle('motion-off', !on);
+  const btn = $('#motionToggle');
+  btn.textContent = on ? '배경 움직임 끄기' : '배경 움직임 켜기';
+  btn.setAttribute('aria-pressed', String(!on));
+  store('yt_motion', on ? 'on' : 'off');
+  if (on) WeatherFx.start(); else WeatherFx.stop();
+}
+
+function applyWeather(code, isDay) {
+  const [kind, level, label] = describeWeather(code);
+  const b = document.body.classList;
+  ['weather-clear', 'weather-cloudy', 'weather-rain', 'weather-snow', 'weather-night'].forEach(c => b.remove(c));
+  b.add('weather-' + kind);
+  if (!isDay) b.add('weather-night');
+  WeatherFx.set(kind, level);
+  const pill = $('#weatherPill');
+  pill.textContent = `서울 · ${label}${isDay ? '' : ' · 밤'}`;
+  pill.title = '서울의 현재 날씨에 맞춰 배경이 바뀝니다 (Open-Meteo, 약 20분마다 갱신)';
+  pill.hidden = !label;
+}
+
+async function loadWeather() {
+  const preview = new URLSearchParams(location.search);
+  const forced = preview.get('weather');
+  if (forced) {
+    const codes = { clear: 0, cloudy: 3, rain: 63, snow: 73, storm: 95 };
+    return applyWeather(codes[forced] ?? 0, preview.get('night') !== '1');
+  }
+  try {
+    const cached = JSON.parse(store('yt_weather') || 'null');
+    if (cached && Date.now() - cached.at < WEATHER_TTL) return applyWeather(cached.code, cached.isDay);
+  } catch { /* 캐시가 깨졌으면 새로 받는다 */ }
+  try {
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=${SEOUL.lat}&longitude=${SEOUL.lon}&current=weather_code,is_day&timezone=Asia%2FSeoul`;
+    const d = await (await fetch(url)).json();
+    const code = d.current?.weather_code, isDay = d.current?.is_day === 1;
+    if (code == null) return;
+    store('yt_weather', JSON.stringify({ at: Date.now(), code, isDay }));
+    applyWeather(code, isDay);
+  } catch { /* 날씨를 못 받으면 기본(맑음) 배경 그대로 둔다 */ }
+}
+
 /* ---------------- 탭 전환 · 초기화 ---------------- */
 
 // 탭 이름을 누르면 그 탭의 입력값·결과를 처음 상태로 되돌린다 (API 키 설정 탭은 키가 지워지지 않도록 제외)
@@ -1317,6 +1442,11 @@ function init() {
   updateSearchCost();
   initSettings();
   initKeyModal();
+  const savedMotion = store('yt_motion');
+  setMotion(savedMotion ? savedMotion === 'on' : !matchMedia('(prefers-reduced-motion: reduce)').matches);
+  $('#motionToggle').onclick = () => setMotion(!motionOn());
+  loadWeather();
+  setInterval(loadWeather, WEATHER_TTL);
   renderStatus();
   switchTab(store('yt_tab') || 'channels');
   if (!getKey()) openKeyModal();

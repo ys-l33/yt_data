@@ -23,7 +23,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@0,300;0,500;1,300&family=Fraunces:ital,opsz,wght,SOFT,WONK@0,9..144,300..600,0..100,0..1;1,9..144,300..600,0..100,0..1&family=Gowun+Batang:wght@400;700&display=swap">
-  <link rel="stylesheet" href="style.css?v=20261029-35">
+  <link rel="stylesheet" href="style.css?v=20261029-36">
 </head>
 <body>
   <div class="ambient" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span><i></i><i></i><i></i><i></i><i></i><i></i></div>
@@ -55,11 +55,11 @@
       <p class="home-lead">내 YouTube API 키로 채널·영상·댓글 지표를 한 번에 뽑아 보고, 비교하고, CSV로 저장하는 분석 도구입니다.</p>
 
       <div class="feature-grid">
-        <button type="button" class="feature" data-go="channels"><span class="no">01</span><strong>채널별 비교</strong><span class="desc">경쟁·후보 채널의 구독자, 평균·중앙값 조회수, 참여율을 나란히 비교할 때</span><span class="go">바로 가기 →</span></button>
-        <button type="button" class="feature" data-go="videos"><span class="no">02</span><strong>영상별 비교</strong><span class="desc">캠페인·협찬 영상 성과를 한 표로 모아 보고 합계를 낼 때</span><span class="go">바로 가기 →</span></button>
-        <button type="button" class="feature" data-go="search"><span class="no">03</span><strong>키워드 검색</strong><span class="desc">키워드로 영상·채널을 찾아 인플루언서를 발굴할 때</span><span class="go">바로 가기 →</span></button>
-        <button type="button" class="feature" data-go="comments"><span class="no">04</span><strong>댓글 분석</strong><span class="desc">영상 반응을 살피고 브랜드·제품 언급을 셀 때</span><span class="go">바로 가기 →</span></button>
-        <button type="button" class="feature" data-go="thumbs"><span class="no">05</span><strong>썸네일 다운로드</strong><span class="desc">레퍼런스용 썸네일을 고화질로 저장할 때</span><span class="go">바로 가기 →</span></button>
+        <button type="button" class="feature" data-go="channels"><span class="no">01</span><strong>채널별 비교</strong><span class="desc">여러 채널의 구독자, 평균·중앙값 조회수, 참여율 등을 한 표로 비교합니다.</span><span class="go">바로 가기 →</span></button>
+        <button type="button" class="feature" data-go="videos"><span class="no">02</span><strong>영상별 비교</strong><span class="desc">여러 영상의 조회수, 좋아요, 댓글, 참여율을 한 표로 모으고 합계를 냅니다.</span><span class="go">바로 가기 →</span></button>
+        <button type="button" class="feature" data-go="search"><span class="no">03</span><strong>키워드 검색</strong><span class="desc">키워드로 영상·채널을 검색하고 조회수, 구독자 등 지표를 함께 보여줍니다.</span><span class="go">바로 가기 →</span></button>
+        <button type="button" class="feature" data-go="comments"><span class="no">04</span><strong>댓글 분석</strong><span class="desc">영상 댓글을 수집해 자주 쓰인 단어와 키워드 언급 수·비율을 보여줍니다.</span><span class="go">바로 가기 →</span></button>
+        <button type="button" class="feature" data-go="thumbs"><span class="no">05</span><strong>썸네일 다운로드</strong><span class="desc">영상 썸네일을 크기별로 미리 보고 내려받습니다.</span><span class="go">바로 가기 →</span></button>
       </div>
 
       <div class="home-cols">
@@ -77,7 +77,7 @@
             <button type="button" id="recentClear" class="ghost small" hidden>전체 지우기</button>
           </div>
           <div id="recentList"></div>
-          <p class="muted">클릭 시 이전에 입력한 내용이 유지된 채로 이동합니다. 해당 기록은 현재 브라우저에만 저장됩니다.</p>
+          <p class="muted">클릭 시 이전에 입력한 내용이 유지된 채로 이동합니다.<br><small class="fine-note">(해당 기록은 현재 브라우저에만 저장됩니다.)</small></p>
         </div>
       </div>
     </section>

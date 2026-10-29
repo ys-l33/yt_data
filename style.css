@@ -241,8 +241,9 @@ button:focus-visible, .tabs button:focus-visible { outline: 2px solid var(--gree
 .steps li { counter-increment: s; position: relative; padding: 2px 0 10px 40px; }
 .steps li::before {
   content: "(" counter(s) ")"; position: absolute; left: 0; top: -2px;
-  font-family: var(--f-display); font-style: italic; font-size: 18px; color: var(--ink-2);
+  font-family: var(--f-body); font-weight: 600; font-size: 14px; color: var(--ink-2); top: 3px;
 }
+.fine-note { font-size: 11.5px; opacity: .75; }
 
 .status-line { min-height: 22px; margin: -6px 2px 16px; color: var(--ink-2); font-size: 13px; font-weight: 600; }
 .status-line.error { color: var(--error); }

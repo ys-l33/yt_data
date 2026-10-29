@@ -888,8 +888,8 @@ function renderSearch() {
         <select id="sMoreN"><option>10</option><option selected>25</option><option>50</option></select>
         건 <button type="button" id="sMore" class="ghost small" ${exhausted ? 'disabled' : ''}>더 검색하기</button>
       </label>
-      <button type="button" id="sUndo" class="ghost small" ${s.undo.length ? '' : 'disabled'}>↶ 삭제 취소${s.undo.length ? ` (${s.undo.length})` : ''}</button>
       <span class="muted">${exhausted ? '더 가져올 결과가 없습니다' : '이미 받은 결과와 삭제한 결과는 다시 나오지 않습니다 · 검색 1회 100 유닛'}</span>
+      <button type="button" id="sUndo" class="ghost small undo" ${s.undo.length ? '' : 'disabled'}>↶ 삭제 취소${s.undo.length ? ` (${s.undo.length})` : ''}</button>
     </div>
     <div class="stable"></div>`;
   const tableEl = $('.stable', body);

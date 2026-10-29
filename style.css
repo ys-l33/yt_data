@@ -123,8 +123,8 @@ h2 { font-family: var(--f-title); font-size: 19px; margin-bottom: 14px; }
 /* ---------- 종이 시트 ---------- */
 main {
   position: relative;
-  max-width: 1224px; margin: 0 auto 64px;
-  padding: 40px 48px 170px 76px;  /* 아래쪽은 회전목마 자리 */
+  max-width: 1224px; margin: 0 auto 0;
+  padding: 40px 48px 56px 76px;
   background: var(--ivory);
   box-shadow: 0 30px 50px -30px rgba(14, 59, 35, .55), 0 2px 0 rgba(14, 59, 35, .08);
 }
@@ -141,9 +141,16 @@ main::before, main::after {
 main::before { top: 64px; }
 main::after { bottom: 64px; }
 
-/* 페이지 맨 아래, 종이 아래 선 위에 서 있는 회전목마 */
-.carousel { position: absolute; left: 50%; bottom: 0; transform: translateX(-50%); line-height: 0; pointer-events: none; }
-.carousel svg { display: block; overflow: visible; }
+/* 종이 아래 초록 바탕에 놓인 회전목마 */
+.carousel-stage { position: relative; z-index: 1; display: flex; justify-content: center; margin: 36px 0 48px; pointer-events: none; }
+.carousel { display: block; overflow: visible; max-width: 80vw; height: auto; filter: drop-shadow(0 10px 14px rgba(9, 40, 24, .35)); }
+.cr-windows rect { fill: #FFE9B8; stroke: #B8893A; stroke-width: .8; animation: crWin 3.2s ease-in-out infinite alternate; }
+.cr-windows rect:nth-child(2n) { animation-delay: -1.6s; }
+.cr-medals circle { fill: url(#crGold); stroke: #7A5A1E; stroke-width: .6; }
+.cr-bulbs circle { fill: #FFF1C9; animation: crBulb 1.6s ease-in-out infinite; }
+.motion-off .cr-windows rect, .motion-off .cr-bulbs circle { animation-play-state: paused; }
+@keyframes crWin { from { opacity: .75; } to { opacity: 1; } }
+@keyframes crBulb { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }
 
 .panel { display: none; }
 .panel.active { display: block; animation: settle .45s ease-out; }

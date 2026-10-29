@@ -699,7 +699,10 @@ function updateSearchCost() {
   const pages = Math.ceil(count / 50);
   const extra = Math.ceil(count / 50) * ($('#sType').value === 'video' ? 2 : 1);
   $('#sCost').textContent = `예상 할당량: 약 ${(pages * 100 + extra).toLocaleString()} 유닛 (검색 1회 = 100 · 제외·종류 조건으로 빠진 만큼 더 검색하면 늘어남)`;
-  $('#sKind').disabled = $('#sType').value !== 'video';
+  const isVideo = $('#sType').value === 'video';
+  $('#sKind').disabled = !isVideo;
+  // 채널 검색에는 영상 제목·태그가 없어 설명·채널명 칸만 쓴다
+  ['#sExTitle', '#sExTags'].forEach(s => { $(s).disabled = !isVideo; });
   const custom = $('#sPeriod').value === 'custom';
   $('#sDates').hidden = !custom;
   if (custom && !$('#sTo').value) {
@@ -713,14 +716,22 @@ function updateSearchCost() {
 async function runSearch() {
   const q = $('#sQuery').value.trim();
   if (!q) return toast('검색어를 입력해 주세요.');
-  // YouTube 검색은 비슷한 말까지 넓게 잡으므로(예: 페이 → 페이커) 제외 단어를 -연산자로 보내고, 결과에서도 한 번 더 거른다
-  const excludes = unique($('#sExclude').value.split(',').map(s => s.trim()).filter(Boolean));
-  const apiQuery = q + excludes.map(w => ` -${/\s/.test(w) ? `"${w}"` : w}`).join('');
-  const isExcluded = (...texts) => {
-    const hay = texts.join(' ').toLowerCase();
-    return excludes.some(w => hay.includes(w.toLowerCase()));
-  };
   const type = $('#sType').value, count = +$('#sCount').value;
+  // YouTube 검색은 비슷한 말까지 넓게 잡으므로(예: 페이 → 페이커) 위치별 제외 단어로 결과를 거른다
+  const words = sel => unique($(sel).value.split(',').map(s => s.trim().toLowerCase()).filter(Boolean));
+  const ex = {
+    title: words('#sExTitle'),
+    desc: words('#sExDesc'),
+    tags: type === 'video' ? words('#sExTags') : [],
+    channel: words('#sExChannel'),
+  };
+  const hasAny = (text, list) => list.length > 0 && list.some(w => (text || '').toLowerCase().includes(w));
+  // YouTube의 -단어 연산자는 제목·설명·태그 어디에 있든 빼므로, 세 칸 모두에 넣은 단어만 보내 검색 낭비를 줄인다
+  const everywhere = type === 'video'
+    ? ex.title.filter(w => ex.desc.includes(w) && ex.tags.includes(w))
+    : [];
+  const apiQuery = q + everywhere.map(w => ` -${/\s/.test(w) ? `"${w}"` : w}`).join('');
+  const excludeCount = ex.title.length + ex.desc.length + ex.tags.length + ex.channel.length;
   const period = $('#sPeriod').value, kind = $('#sKind').value, order = $('#sOrder').value;
   let publishedAfter, publishedBefore;
   if (period === 'custom') {
@@ -746,12 +757,12 @@ async function runSearch() {
 
   // 제외 단어·영상 종류로 빠진 만큼 다음 페이지에서 채워 요청한 개수를 맞춘다.
   // 검색 1회가 100 유닛이라 조건이 너무 좁을 때 할당량을 다 쓰지 않도록 추가 검색은 3페이지까지만 한다.
-  const filtering = excludes.length > 0 || (type === 'video' && kind !== 'all');
+  const filtering = excludeCount > 0 || (type === 'video' && kind !== 'all');
   const maxPages = Math.ceil(count / 50) + (filtering ? 3 : 0);
   const keep = type === 'video'
-    ? v => (isExcluded(v.title, v.description, v.tags, v.channelTitle) ? 'excluded'
+    ? v => (hasAny(v.title, ex.title) || hasAny(v.description, ex.desc) || hasAny(v.tags, ex.tags) || hasAny(v.channelTitle, ex.channel) ? 'excluded'
       : kind !== 'all' && (kind === 'short') !== v.isShort ? 'kind' : 'ok')
-    : c => (isExcluded(c.title, c.handle, c.description) ? 'excluded' : 'ok');
+    : c => (hasAny(c.description, ex.desc) || hasAny(`${c.title} ${c.handle}`, ex.channel) ? 'excluded' : 'ok');
   const kept = [], seen = new Set();
   let pageToken, pages = 0, dropped = 0, kindDropped = 0, quotaMsg = '';
   try {
@@ -1093,7 +1104,9 @@ function init() {
   $('#vRun').onclick = () => run($('#vRun'), '#vStatus', runVideos);
   $('#sRun').onclick = () => run($('#sRun'), '#sStatus', runSearch);
   $('#cRun').onclick = () => run($('#cRun'), '#cStatus', runComments);
-  $('#sQuery').onkeydown = $('#sExclude').onkeydown = e => { if (e.key === 'Enter') $('#sRun').click(); };
+  ['#sQuery', '#sExTitle', '#sExDesc', '#sExTags', '#sExChannel'].forEach(s => {
+    $(s).onkeydown = e => { if (e.key === 'Enter') $('#sRun').click(); };
+  });
   $('#cVideo').onkeydown = e => { if (e.key === 'Enter') $('#cRun').click(); };
   $('#cKeywords').oninput = () => renderComments();
   ['#sType', '#sCount', '#sPeriod'].forEach(s => { $(s).onchange = updateSearchCost; });

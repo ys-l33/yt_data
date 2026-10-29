@@ -138,6 +138,10 @@ main::after { bottom: 64px; }
 .check input { accent-color: var(--ink); width: 15px; height: 15px; }
 .keyrow input { flex: 1; min-width: 200px; }
 .date-range { flex-wrap: wrap; }
+.exclude-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px 14px; }
+.sub-field { display: flex; flex-direction: column; gap: 4px; }
+.sub-field > span { font-size: 12px; color: var(--ink-2); font-weight: 600; }
+input:disabled { opacity: .45; }
 .date-range input { min-width: 160px; }
 .keyrow { margin-top: 0; }
 

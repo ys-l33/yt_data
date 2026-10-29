@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@0,300;0,500;1,300&family=Fraunces:ital,opsz,wght,SOFT,WONK@0,9..144,300..600,0..100,0..1;1,9..144,300..600,0..100,0..1&family=Gowun+Batang:wght@400;700&display=swap">
-  <link rel="stylesheet" href="style.css?v=20261029-8">
+  <link rel="stylesheet" href="style.css?v=20261029-9">
 </head>
 <body>
   <header class="top">
@@ -97,10 +97,15 @@
             <span>검색어 <em>여러 단어 중 하나라도 포함: | 로 구분 (예: 카카오페이 | 네이버페이)</em></span>
             <input id="sQuery" type="text" placeholder="예: 페이">
           </label>
-          <label class="field wide">
-            <span>제외할 단어 <em>쉼표로 구분 · 제목·설명·태그·채널명에 이 단어가 있는 결과는 뺍니다</em></span>
-            <input id="sExclude" type="text" placeholder="예: 페이커, 롤드컵">
-          </label>
+          <div class="field wide">
+            <span>제외할 단어 <em>쉼표로 구분 · 칸마다 해당 위치에 그 단어가 있는 결과만 뺍니다</em></span>
+            <div class="exclude-grid">
+              <label class="sub-field"><span>제목</span><input id="sExTitle" type="text" placeholder="예: 페이커, 롤드컵"></label>
+              <label class="sub-field"><span>설명</span><input id="sExDesc" type="text" placeholder="예: 페이커"></label>
+              <label class="sub-field"><span>태그</span><input id="sExTags" type="text" placeholder="예: lol"></label>
+              <label class="sub-field"><span>채널명</span><input id="sExChannel" type="text" placeholder="예: T1"></label>
+            </div>
+          </div>
           <label class="field">
             <span>검색 대상</span>
             <select id="sType"><option value="video">영상</option><option value="channel">채널</option></select>
@@ -257,6 +262,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=20261029-8"></script>
+  <script src="app.js?v=20261029-9"></script>
 </body>
 </html>

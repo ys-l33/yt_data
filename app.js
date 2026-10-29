@@ -719,7 +719,7 @@ function updateSearchCost() {
   const extra = Math.ceil(count / 50) * ($('#sType').value === 'video' ? 2 : 1);
   const typed = $('#sCount').value === 'custom' ? Math.round(+$('#sCountCustom').value) : 0;
   $('#sCost').textContent = !count
-    ? `결과 수를 1~${SEARCH_MAX} 사이로 입력하면 예상 할당량을 보여줍니다`
+    ? `결과 수를 1~${SEARCH_MAX} 사이로 입력하면 예상 할당량을 보여줍니다.`
     : `예상 할당량: 약 ${(pages * 100 + extra).toLocaleString()} 유닛 (검색 1회 = 100 · 제외·종류 조건으로 빠진 만큼 더 검색하면 늘어남)`
       + (typed > SEARCH_MAX ? ` · YouTube 검색은 최대 ${SEARCH_MAX}건까지라 ${SEARCH_MAX}건으로 검색합니다` : '');
   const isVideo = $('#sType').value === 'video';

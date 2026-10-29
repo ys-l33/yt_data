@@ -472,7 +472,7 @@ function viewsChart(vids) {
   }
   data.forEach((v, i) => {
     const x = L + i * bw + bw * 0.15, yy = y(v.views);
-    svg += `<rect class="bar ${v.isShort ? 'short' : ''}" x="${x}" y="${yy}" width="${Math.max(1, bw * 0.7)}" height="${H - B - yy}" rx="2"><title>${esc(v.title)}\n${fmt.date(v.publishedAt)} · 조회수 ${fmt.num(v.views)} · 참여율 ${fmt.pct(v.er)}</title></rect>`;
+    svg += `<rect class="bar ${v.isShort ? 'short' : ''}" x="${x}" y="${yy}" width="${Math.max(1, bw * 0.7)}" height="${H - B - yy}" rx="${Math.min(6, bw * 0.3)}"><title>${esc(v.title)}\n${fmt.date(v.publishedAt)} · 조회수 ${fmt.num(v.views)} · 참여율 ${fmt.pct(v.er)}</title></rect>`;
   });
   svg += `<line class="avg" x1="${L}" x2="${W - R}" y1="${y(avg)}" y2="${y(avg)}"/>`;
   svg += `<line class="med" x1="${L}" x2="${W - R}" y1="${y(med)}" y2="${y(med)}"/>`;
@@ -480,7 +480,7 @@ function viewsChart(vids) {
   svg += `<text class="axis" x="${W - R}" y="${H - 6}" text-anchor="end">${fmt.date(data[data.length - 1].publishedAt)}</text>`;
   return `<div class="chart-wrap"><svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="영상별 조회수">${svg}</svg>
     <div class="legend"><span><i style="background:var(--bar)"></i>롱폼</span><span><i style="background:var(--bar-short)"></i>쇼츠</span>
-    <span><i class="line" style="border-color:var(--accent)"></i>평균 ${fmt.compact(avg)}</span><span><i class="line" style="border-color:var(--muted)"></i>중앙값 ${fmt.compact(med)}</span>
+    <span><i class="line" style="border-color:var(--avg-line)"></i>평균 ${fmt.compact(avg)}</span><span><i class="line" style="border-color:var(--muted)"></i>중앙값 ${fmt.compact(med)}</span>
     <span>막대에 마우스를 올리면 영상 정보가 보입니다</span></div></div>`;
 }
 

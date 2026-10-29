@@ -3,18 +3,24 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>YT 데이터 추출기</title>
-  <meta name="description" content="개인 YouTube Data API 키로 채널·영상·댓글 지표를 추출하고 CSV로 내려받는 브랜드 분석 도구">
+  <title>YouTube Data Playground</title>
+  <meta name="description" content="개인 YouTube Data API 키로 채널·영상·댓글 지표를 추출하고 CSV로 내려받는 도구">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cpath d='M32 4c14 0 26 6 27 22s-7 32-27 34S4 46 5 28 18 4 32 4z' fill='%232BAE66'/%3E%3Cpath d='M26 21l18 11-18 11z' fill='%23FCF6F5' stroke='%23FCF6F5' stroke-width='4' stroke-linejoin='round'/%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Jua&display=swap">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <header class="top">
+    <div class="deco" aria-hidden="true"><span class="b1"></span><span class="b2"></span><span class="b3"></span></div>
     <div class="brand">
-      <span class="logo" aria-hidden="true">▶</span>
-      <div>
-        <h1>YT 데이터 추출기</h1>
-        <p>브랜드 · 인플루언서 분석용 YouTube 지표 추출</p>
-      </div>
+      <svg class="logo" viewBox="0 0 64 64" aria-hidden="true">
+        <path class="logo-blob" d="M32 4c14 0 26 6 27 22s-7 32-27 34S4 46 5 28 18 4 32 4z"/>
+        <path class="logo-play" d="M26 21l18 11-18 11z"/>
+        <path class="logo-spark" d="M56 6l2 5 5 2-5 2-2 5-2-5-5-2 5-2z"/>
+      </svg>
+      <h1><span class="w1">YouTube Data</span> <span class="w2">Playground</span></h1>
     </div>
     <div class="status">
       <span id="keyStatus" class="pill">API 키 없음</span>
@@ -23,11 +29,11 @@
   </header>
 
   <nav class="tabs" role="tablist">
-    <button role="tab" data-tab="channels" class="active">채널 분석</button>
-    <button role="tab" data-tab="videos">영상 분석</button>
-    <button role="tab" data-tab="search">키워드 검색</button>
-    <button role="tab" data-tab="comments">댓글 수집</button>
-    <button role="tab" data-tab="settings">API 키 설정</button>
+    <button role="tab" data-tab="channels" class="active"><span class="ic" aria-hidden="true">📺</span>채널 분석</button>
+    <button role="tab" data-tab="videos"><span class="ic" aria-hidden="true">🎬</span>영상 분석</button>
+    <button role="tab" data-tab="search"><span class="ic" aria-hidden="true">🔍</span>키워드 검색</button>
+    <button role="tab" data-tab="comments"><span class="ic" aria-hidden="true">💬</span>댓글 수집</button>
+    <button role="tab" data-tab="settings"><span class="ic" aria-hidden="true">🔑</span>API 키 설정</button>
   </nav>
 
   <main>

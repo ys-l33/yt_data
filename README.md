@@ -1,4 +1,4 @@
-# YT 데이터 추출기
+# YouTube Data Playground
 
 개인이 발급받은 **YouTube Data API v3 키**로 채널·영상·댓글 지표를 추출하고 CSV로 내려받는 브랜드/인플루언서 분석 도구입니다.
 서버 없이 브라우저에서만 동작하며, API 키는 브라우저에만 저장되고 Google API로 직접 전달됩니다.

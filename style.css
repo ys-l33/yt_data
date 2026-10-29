@@ -23,6 +23,7 @@
 }
 
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
 
 body {
   margin: 0;
@@ -136,9 +137,11 @@ main::after { bottom: 64px; }
 .check { display: flex; align-items: center; gap: 8px; margin-top: 12px; color: var(--ink-2); }
 .check input { accent-color: var(--ink); width: 15px; height: 15px; }
 .keyrow input { flex: 1; min-width: 200px; }
+.date-range { flex-wrap: wrap; }
+.date-range input { min-width: 160px; }
 .keyrow { margin-top: 0; }
 
-input[type=text], input[type=password], textarea, select {
+input[type=text], input[type=password], input[type=date], textarea, select {
   font: inherit; color: var(--ink);
   background: var(--paper-hi); border: 1px solid var(--rule-2);
   border-radius: 0; padding: 9px 12px;

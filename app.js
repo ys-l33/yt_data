@@ -670,7 +670,15 @@ function updateSearchCost() {
   const pages = Math.ceil(count / 50);
   const extra = Math.ceil(count / 50) * ($('#sType').value === 'video' ? 2 : 1);
   $('#sCost').textContent = `예상 할당량: 약 ${(pages * 100 + extra).toLocaleString()} 유닛 (검색 1회 = 100)`;
-  $('#sDuration').disabled = $('#sType').value !== 'video';
+  $('#sKind').disabled = $('#sType').value !== 'video';
+  const custom = $('#sPeriod').value === 'custom';
+  $('#sDates').hidden = !custom;
+  if (custom && !$('#sTo').value) {
+    const today = new Date();
+    $('#sTo').value = today.toLocaleDateString('sv-SE');
+    $('#sFrom').value = new Date(today - 30 * 864e5).toLocaleDateString('sv-SE');
+  }
+  $('#sFrom').max = $('#sTo').max = new Date().toLocaleDateString('sv-SE');
 }
 
 async function runSearch() {
@@ -684,14 +692,28 @@ async function runSearch() {
     return excludes.some(w => hay.includes(w.toLowerCase()));
   };
   const type = $('#sType').value, count = +$('#sCount').value;
-  const days = +$('#sPeriod').value;
+  const period = $('#sPeriod').value, kind = $('#sKind').value, order = $('#sOrder').value;
+  let publishedAfter, publishedBefore;
+  if (period === 'custom') {
+    const from = $('#sFrom').value, to = $('#sTo').value;
+    if (!from && !to) return toast('기간을 입력해 주세요.');
+    if (from && to && from > to) return toast('시작일이 종료일보다 늦습니다.');
+    // 입력한 날짜는 내 시간대 기준 하루 전체로 본다
+    if (from) publishedAfter = new Date(`${from}T00:00:00`).toISOString();
+    if (to) publishedBefore = new Date(`${to}T23:59:59.999`).toISOString();
+  } else if (period) {
+    publishedAfter = new Date(Date.now() - +period * 864e5).toISOString();
+  }
   const params = {
     part: 'snippet', type, q: apiQuery,
-    order: $('#sOrder').value,
+    // YouTube 검색은 좋아요수 정렬이 없어 좋아요 기반 순위인 rating으로 받은 뒤 실제 좋아요수로 다시 정렬한다
+    order: order === 'likes' ? 'rating' : order,
     regionCode: $('#sRegion').value,
     relevanceLanguage: $('#sRegion').value === 'KR' ? 'ko' : undefined,
-    publishedAfter: days ? new Date(Date.now() - days * 864e5).toISOString() : undefined,
-    videoDuration: type === 'video' ? $('#sDuration').value : undefined,
+    publishedAfter,
+    publishedBefore,
+    // 쇼츠 필터가 없어 쇼츠만 찾을 땐 4분 미만으로 후보를 좁히고, 아래에서 쇼츠 판별로 다시 거른다
+    videoDuration: type === 'video' && kind === 'short' ? 'short' : undefined,
   };
 
   const ids = [];
@@ -708,21 +730,26 @@ async function runSearch() {
 
   if (type === 'video') {
     const all = await fetchVideos(ids);
-    const vids = all.filter(v => !isExcluded(v.title, v.description, v.tags, v.channelTitle));
+    const notExcluded = all.filter(v => !isExcluded(v.title, v.description, v.tags, v.channelTitle));
+    const vids = notExcluded.filter(v => kind === 'all' || (kind === 'short' ? v.isShort : !v.isShort));
+    if (order === 'likes') vids.sort((a, b) => (b.likes ?? -1) - (a.likes ?? -1));
     await attachChannelStats(vids);
     searchResults = vids;
     const cols = videoCols(true);
-    const dropped = all.length - vids.length;
+    const dropped = all.length - notExcluded.length;
+    const kindDropped = notExcluded.length - vids.length;
     const body = block($('#sResult'), {
       title: `“${q}” 영상 검색 결과 ${vids.length}건`,
-      sub: (dropped ? `제외 단어가 들어간 ${dropped}건을 뺐습니다 · ` : '') + '구독자 대비 조회율이 높은 영상은 알고리즘 추천을 받은 바이럴 콘텐츠일 가능성이 큽니다.',
+      sub: (dropped ? `제외 단어가 들어간 ${dropped}건을 뺐습니다 · ` : '')
+        + (kindDropped ? `${kind === 'short' ? '쇼츠' : '일반 영상'}가 아닌 ${kindDropped}건을 뺐습니다 · ` : '')
+        + '구독자 대비 조회율이 높은 영상은 알고리즘 추천을 받은 바이럴 콘텐츠일 가능성이 큽니다.',
       actions: [
         { label: '영상들을 영상별 비교로 보내기', run: () => sendToVideos(vids.map(v => v.id)) },
         { label: '채널들을 채널별 비교로 보내기', run: () => sendToChannels(vids.map(v => v.channelId)) },
         { label: 'CSV 다운로드', run: () => downloadCSV(`검색_${q}`, [...cols, ...videoCsvExtra], searchResults) },
       ],
     });
-    renderTable(body, cols, vids);
+    renderTable(body, cols, vids, order === 'likes' ? { sortKey: 'likes' } : {});
   } else {
     const all = await fetchChannels(ids);
     const chs = all.filter(c => !isExcluded(c.title, c.handle, c.description));
@@ -1004,7 +1031,7 @@ function init() {
   $('#sQuery').onkeydown = $('#sExclude').onkeydown = e => { if (e.key === 'Enter') $('#sRun').click(); };
   $('#cVideo').onkeydown = e => { if (e.key === 'Enter') $('#cRun').click(); };
   $('#cKeywords').oninput = () => renderComments();
-  ['#sType', '#sCount'].forEach(s => { $(s).onchange = updateSearchCost; });
+  ['#sType', '#sCount', '#sPeriod'].forEach(s => { $(s).onchange = updateSearchCost; });
   updateSearchCost();
   initSettings();
   initKeyModal();

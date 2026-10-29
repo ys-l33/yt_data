@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@0,300;0,500;1,300&family=Fraunces:ital,opsz,wght,SOFT,WONK@0,9..144,300..600,0..100,0..1;1,9..144,300..600,0..100,0..1&family=Gowun+Batang:wght@400;700&display=swap">
-  <link rel="stylesheet" href="style.css?v=20261029-4">
+  <link rel="stylesheet" href="style.css?v=20261029-5">
 </head>
 <body>
   <header class="top">
@@ -111,7 +111,7 @@
               <option value="relevance">관련도</option>
               <option value="viewCount">조회수</option>
               <option value="date">최신순</option>
-              <option value="rating">평점</option>
+              <option value="likes">좋아요수</option>
             </select>
           </label>
           <label class="field">
@@ -122,15 +122,15 @@
               <option value="30">최근 30일</option>
               <option value="90">최근 90일</option>
               <option value="365">최근 1년</option>
+              <option value="custom">직접 입력</option>
             </select>
           </label>
           <label class="field">
-            <span>영상 길이</span>
-            <select id="sDuration">
-              <option value="any">전체</option>
-              <option value="short">4분 미만</option>
-              <option value="medium">4~20분</option>
-              <option value="long">20분 초과</option>
+            <span>영상 종류</span>
+            <select id="sKind">
+              <option value="all">전체</option>
+              <option value="long">일반 영상</option>
+              <option value="short">쇼츠</option>
             </select>
           </label>
           <label class="field">
@@ -141,6 +141,14 @@
             <span>결과 수</span>
             <select id="sCount"><option>25</option><option selected>50</option><option>100</option><option>150</option></select>
           </label>
+          <div id="sDates" class="field wide" hidden>
+            <span>기간 직접 입력 <em>게시일 기준 · 시작일과 종료일 포함</em></span>
+            <div class="inline date-range">
+              <input id="sFrom" type="date" aria-label="시작일">
+              <span>~</span>
+              <input id="sTo" type="date" aria-label="종료일">
+            </div>
+          </div>
         </div>
         <div class="row">
           <span id="sCost" class="muted"></span>
@@ -249,6 +257,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=20261029-4"></script>
+  <script src="app.js?v=20261029-5"></script>
 </body>
 </html>

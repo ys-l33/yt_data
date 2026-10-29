@@ -697,6 +697,12 @@ async function runVideos() {
 
 let searchResults = [];
 
+// 결과 수 "직접 입력" 옆 ⓘ 버튼의 안내 창
+function toggleCountInfo(open = $('#sCountPop').hidden) {
+  $('#sCountPop').hidden = !open;
+  $('#sCountInfo').setAttribute('aria-expanded', String(open));
+}
+
 // YouTube 검색은 한 검색어당 최대 500건 정도까지만 결과를 준다
 const SEARCH_MAX = 500;
 function searchCount() {
@@ -706,7 +712,8 @@ function searchCount() {
 }
 
 function updateSearchCost() {
-  $('#sCountCustom').hidden = $('#sCountHint').hidden = $('#sCount').value !== 'custom';
+  $('#sCountCustomRow').hidden = $('#sCount').value !== 'custom';
+  if ($('#sCountCustomRow').hidden) toggleCountInfo(false);
   const count = searchCount();
   const pages = Math.ceil(count / 50);
   const extra = Math.ceil(count / 50) * ($('#sType').value === 'video' ? 2 : 1);
@@ -1469,6 +1476,9 @@ function init() {
   $('#cKeywords').oninput = () => renderComments();
   ['#sType', '#sCount', '#sPeriod'].forEach(s => { $(s).onchange = updateSearchCost; });
   $('#sCountCustom').oninput = updateSearchCost;
+  $('#sCountInfo').onclick = e => { e.stopPropagation(); toggleCountInfo(); };
+  document.addEventListener('click', e => { if (!$('#sCountPop').hidden && !e.target.closest('#sCountPop')) toggleCountInfo(false); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('#sCountPop').hidden) toggleCountInfo(false); });
   $('#sCountCustom').onkeydown = e => { if (e.key === 'Enter') $('#sRun').click(); };
   updateSearchCost();
   initSettings();

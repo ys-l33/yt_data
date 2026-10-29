@@ -113,17 +113,15 @@ function parseDuration(iso) {
 const numOrNull = v => (v === undefined || v === null ? null : Number(v));
 
 function normVideo(v) {
-  const s = v.statistics || {}, sn = v.snippet || {}, cd = v.contentDetails || {};
+  const s = v.statistics || {}, sn = v.snippet || {}, cd = v.contentDetails || {}, pl = v.player || {};
   const secs = parseDuration(cd.duration);
   const published = new Date(sn.publishedAt);
   const ageDays = Math.max(1, (Date.now() - published) / 864e5);
   const views = Number(s.viewCount || 0);
   const likes = numOrNull(s.likeCount);
   const comments = numOrNull(s.commentCount);
-  const text = `${sn.title || ''} ${sn.description || ''}`;
-  // API는 쇼츠 여부를 주지 않으므로 길이와 #shorts 표기로 추정
-  const isShort = secs > 0 && (secs <= 60 || (secs <= 180 && /#shorts?\b/i.test(text)));
-  return {
+  const hashShorts = /#shorts?\b/i.test(`${sn.title || ''} ${sn.description || ''}`);
+  const out = {
     id: v.id,
     url: `https://www.youtube.com/watch?v=${v.id}`,
     title: sn.title || '',
@@ -135,8 +133,10 @@ function normVideo(v) {
     categoryId: sn.categoryId,
     live: sn.liveBroadcastContent || 'none',
     duration: secs,
-    isShort,
-    format: isShort ? '쇼츠' : (cd.duration === 'P0D' ? '라이브' : '롱폼'),
+    isLive: cd.duration === 'P0D',
+    hashShorts,
+    embedW: Number(pl.embedWidth) || null,
+    embedH: Number(pl.embedHeight) || null,
     views, likes, comments,
     likeRate: views && likes != null ? likes / views : null,
     commentRate: views && comments != null ? comments / views : null,
@@ -144,6 +144,9 @@ function normVideo(v) {
     viewsPerDay: views / ageDays,
     ageDays: Math.floor(ageDays),
   };
+  Object.assign(out, classifyShort(out));
+  out.format = out.isLive ? '라이브' : out.isShort ? '쇼츠' : '일반 영상';
+  return out;
 }
 
 function normChannel(c) {
@@ -171,17 +174,37 @@ function normChannel(c) {
 async function fetchVideos(ids) {
   const out = [];
   for (const part of chunk(unique(ids), 50)) {
-    const d = await yt('videos', { part: 'snippet,statistics,contentDetails', id: part.join(','), maxResults: 50 });
+    // maxWidth를 주면 player.embedWidth/Height가 영상 화면비대로 내려온다 (쇼츠 판별용)
+    const d = await yt('videos', { part: 'snippet,statistics,contentDetails,player', id: part.join(','), maxWidth: 1000 });
     out.push(...d.items.map(normVideo));
   }
   const byId = new Map(out.map(v => [v.id, v]));
   return unique(ids).map(id => byId.get(id)).filter(Boolean);
 }
 
+/* ---------------- 쇼츠 판별 ----------------
+ * Data API는 쇼츠 여부를 직접 알려주지 않는다. YouTube 기준 쇼츠는 "세로 또는 정사각형 + 3분 이하"
+ * (2024-10-15 이전 업로드는 60초 이하)이므로, part=player의 embedWidth/Height로 화면비를 확인해 판별한다.
+ * 화면비 정보가 없으면 길이와 #shorts 표기로 추정한다.
+ */
+const SHORTS_3MIN_SINCE = new Date('2024-10-15');
+const SHORTS_LAUNCH = new Date('2020-09-14');
+
+function classifyShort(v) {
+  if (v.isLive) return { isShort: false, shortCheck: '' };
+  const maxSecs = v.publishedAt >= SHORTS_3MIN_SINCE ? 180 : 60;
+  if (v.embedW && v.embedH) {
+    const vertical = v.embedH >= v.embedW;
+    const isShort = vertical && v.duration > 0 && v.duration <= maxSecs && v.publishedAt >= SHORTS_LAUNCH;
+    return { isShort, shortCheck: '화면비 확인' };
+  }
+  return { isShort: v.duration > 0 && (v.duration <= 60 || (v.duration <= 180 && v.hashShorts)), shortCheck: '추정' };
+}
+
 async function fetchChannels(ids) {
   const out = [];
   for (const part of chunk(unique(ids), 50)) {
-    const d = await yt('channels', { part: 'snippet,statistics,contentDetails', id: part.join(','), maxResults: 50 });
+    const d = await yt('channels', { part: 'snippet,statistics,contentDetails', id: part.join(',') });
     out.push(...(d.items || []).map(normChannel));
   }
   const byId = new Map(out.map(c => [c.id, c]));
@@ -400,7 +423,7 @@ const statCards = items => `<div class="stats">${items.map(([label, value, sub])
 
 const titleCol = { key: 'title', label: '제목', type: 'text', cls: 'title', html: r => `<a href="${esc(r.url)}" target="_blank" rel="noopener">${esc(r.title)}</a>` };
 const channelCol = { key: 'title', label: '채널', type: 'text', html: r => `<div class="chcell">${r.thumb ? `<img src="${esc(r.thumb)}" alt="" loading="lazy">` : ''}<div><a href="${esc(r.url)}" target="_blank" rel="noopener">${esc(r.title)}</a><div class="muted">${esc(r.handle)}</div></div></div>` };
-const formatCol = { key: 'format', label: '형식', type: 'text', html: r => `<span class="tag ${r.isShort ? 'short' : ''}">${esc(r.format)}</span>` };
+const formatCol = { key: 'format', label: '형식', type: 'text', html: r => `<span class="tag ${r.isShort ? 'short' : ''}" title="${r.shortCheck === '추정' ? '길이·#shorts 기준 추정' : ''}">${esc(r.format)}${r.shortCheck === '추정' ? '*' : ''}</span>` };
 
 const videoCols = (withChannel) => [
   titleCol,
@@ -420,6 +443,7 @@ const videoCsvExtra = [
   { key: 'id', label: '영상ID', type: 'text' },
   { key: 'url', label: 'URL', type: 'text' },
   { key: 'commentRate', label: '댓글율', type: 'pct' },
+  { key: 'shortCheck', label: '형식 판별', type: 'text' },
   { key: 'ageDays', label: '게시 후 일수', type: 'num' },
   { key: 'tags', label: '태그', type: 'text' },
 ];
@@ -481,7 +505,7 @@ function viewsChart(vids) {
   svg += `<text class="axis" x="${L}" y="${H - 6}">${fmt.date(data[0].publishedAt)}</text>`;
   svg += `<text class="axis" x="${W - R}" y="${H - 6}" text-anchor="end">${fmt.date(data[data.length - 1].publishedAt)}</text>`;
   return `<div class="chart-wrap"><svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="영상별 조회수">${svg}</svg>
-    <div class="legend"><span><i class="sw long"></i>롱폼</span><span><i class="sw short"></i>쇼츠</span>
+    <div class="legend"><span><i class="sw long"></i>일반 영상</span><span><i class="sw short"></i>쇼츠</span>
     <span><i class="ln avg"></i>평균 ${fmt.compact(avg)}</span><span><i class="ln med"></i>중앙값 ${fmt.compact(med)}</span>
     <span>막대에 마우스를 올리면 영상 정보가 보입니다</span></div></div>`;
 }
@@ -548,7 +572,7 @@ async function runChannels() {
   }
   channelResults = results;
 
-  const typeLabel = { all: '전체', long: '롱폼', short: '쇼츠' }[type];
+  const typeLabel = { all: '전체', long: '일반', short: '쇼츠' }[type];
   const body = block($('#chResult'), {
     title: `채널 비교 (${results.length}개)`,
     sub: `최근 ${typeLabel} 영상 ${n}개 기준 · 열 제목을 누르면 정렬, 행을 누르면 영상별 상세${failed.length ? ` · 찾지 못한 채널: ${esc(failed.join(', '))}` : ''}`,

@@ -442,6 +442,7 @@ async function run(btn, statusSel, fn) {
   } catch (e) {
     console.error(e);
     setStatus(statusSel, e.message || String(e), 'error');
+    if (e.reason === 'noKey') openKeyModal();
   } finally {
     btn.disabled = false;
   }
@@ -855,6 +856,50 @@ function initSettings() {
   };
 }
 
+/* ---------------- 첫 방문 API 키 팝업 ---------------- */
+
+// 테스트 호출이 통과하면 키를 확정한다. 할당량 초과는 키 자체는 유효하다는 뜻이라 통과로 본다.
+async function verifyKey(k) {
+  const prev = memKey;
+  memKey = k;
+  try {
+    await yt('videos', { part: 'id', id: 'dQw4w9WgXcQ' });
+  } catch (e) {
+    if (e.reason !== 'quotaExceeded') { memKey = prev; throw e; }
+  }
+}
+
+function openKeyModal() {
+  if (!$('#mSteps').firstChild) $('#mSteps').append($('#tab-settings .steps').cloneNode(true));
+  $('#keyModal').hidden = false;
+  document.body.classList.add('modal-open');
+  setTimeout(() => $('#mKey').focus(), 50);
+}
+
+function closeKeyModal() {
+  $('#keyModal').hidden = true;
+  document.body.classList.remove('modal-open');
+}
+
+function initKeyModal() {
+  $('#mSave').onclick = () => run($('#mSave'), '#mMsg', async () => {
+    const k = $('#mKey').value.trim();
+    if (!k) throw new Error('API 키를 입력해 주세요.');
+    setStatus('#mMsg', '키 확인 중…', 'busy');
+    await verifyKey(k);
+    store('yt_api_key', $('#mRemember').checked ? k : null);
+    $('#keyInput').value = k;
+    renderStatus();
+    closeKeyModal();
+    toast('API 키가 연결되었습니다.');
+  });
+  $('#mKey').onkeydown = e => { if (e.key === 'Enter') $('#mSave').click(); };
+  $('#mClose').onclick = closeKeyModal;
+  $('#keyModal').onclick = e => { if (e.target === $('#keyModal')) closeKeyModal(); };
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('#keyModal').hidden) closeKeyModal(); });
+  $('#keyStatus').onclick = () => (getKey() ? switchTab('settings') : openKeyModal());
+}
+
 /* ---------------- 탭 전환 · 초기화 ---------------- */
 
 function switchTab(name) {
@@ -875,8 +920,10 @@ function init() {
   ['#sType', '#sCount'].forEach(s => { $(s).onchange = updateSearchCost; });
   updateSearchCost();
   initSettings();
+  initKeyModal();
   renderStatus();
-  switchTab(getKey() ? (store('yt_tab') || 'channels') : 'settings');
+  switchTab(store('yt_tab') || 'channels');
+  if (!getKey()) openKeyModal();
 }
 
 init();

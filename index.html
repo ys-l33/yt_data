@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>YouTube Data Playground</title>
   <meta name="description" content="개인 YouTube Data API 키로 채널·영상·댓글 지표를 추출하고 CSV로 내려받는 도구">
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='-2 -2 20 20'%3E%3Crect x='-2' y='-2' width='20' height='20' fill='%232BAE66'/%3E%3Cpath fill='%23FCF6F5' d='M7 0h2v1h-2zM6 1h1v1h-1zM9 1h1v1h-1zM6 2h1v1h-1zM8 2h2v1h-2zM7 3h1v1h-1zM2 4h2v1h-2zM7 4h1v1h-1zM11 4h3v1h-3zM1 5h1v1h-1zM4 5h1v1h-1zM7 5h1v1h-1zM10 5h1v1h-1zM14 5h1v1h-1zM1 6h1v1h-1zM3 6h2v1h-2zM7 6h1v1h-1zM10 6h1v1h-1zM12 6h1v1h-1zM14 6h1v1h-1zM2 7h1v1h-1zM7 7h1v1h-1zM11 7h1v1h-1zM14 7h1v1h-1zM3 8h1v1h-1zM7 8h1v1h-1zM10 8h1v1h-1zM13 8h1v1h-1zM4 9h1v1h-1zM7 9h1v1h-1zM9 9h1v1h-1zM5 10h1v1h-1zM7 10h2v1h-2zM6 11h2v1h-2zM7 12h1v1h-1zM6 13h3v1h-3zM5 14h1v1h-1zM7 14h1v1h-1zM9 14h1v1h-1zM7 15h1v1h-1z'/%3E%3C/svg%3E">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@0,300;0,500;1,300&family=Fraunces:ital,opsz,wght,SOFT,WONK@0,9..144,300..600,0..100,0..1;1,9..144,300..600,0..100,0..1&family=Gowun+Batang:wght@400;700&display=swap">
@@ -13,36 +12,25 @@
 </head>
 <body>
   <header class="top">
-    <div class="hatch" aria-hidden="true"></div>
-    <div class="brand">
-      <svg class="sprig" viewBox="0 0 16 16" aria-hidden="true"><path d="M7 0h2v1h-2zM6 1h1v1h-1zM9 1h1v1h-1zM6 2h1v1h-1zM8 2h2v1h-2zM7 3h1v1h-1zM2 4h2v1h-2zM7 4h1v1h-1zM11 4h3v1h-3zM1 5h1v1h-1zM4 5h1v1h-1zM7 5h1v1h-1zM10 5h1v1h-1zM14 5h1v1h-1zM1 6h1v1h-1zM3 6h2v1h-2zM7 6h1v1h-1zM10 6h1v1h-1zM12 6h1v1h-1zM14 6h1v1h-1zM2 7h1v1h-1zM7 7h1v1h-1zM11 7h1v1h-1zM14 7h1v1h-1zM3 8h1v1h-1zM7 8h1v1h-1zM10 8h1v1h-1zM13 8h1v1h-1zM4 9h1v1h-1zM7 9h1v1h-1zM9 9h1v1h-1zM5 10h1v1h-1zM7 10h2v1h-2zM6 11h2v1h-2zM7 12h1v1h-1zM6 13h3v1h-3zM5 14h1v1h-1zM7 14h1v1h-1zM9 14h1v1h-1zM7 15h1v1h-1z"/></svg>
-      <div class="wordmark">
-        <span class="kicker">(2026) &nbsp;YouTube Data</span>
-        <h1>Playground<span class="smile">:)</span></h1>
-      </div>
-    </div>
-    <div class="masthead">
-      <p class="fine">DATA<br>IN<br>PLAY</p>
-      <p class="fine small">ALL NUMBERS VIA<br>YOUTUBE DATA API v3<br>NO SERVER · KEY STAYS HERE</p>
-      <div class="status">
-        <span id="keyStatus" class="pill">API 키 없음</span>
-        <span id="quota" class="pill" title="이 브라우저에서 오늘 사용한 추정 할당량 (태평양 시간 자정에 초기화)">오늘 0 / 10,000</span>
-      </div>
+    <h1 class="wordmark">YouTube Data Playground</h1>
+    <div class="status">
+      <span id="keyStatus" class="pill">API 키 없음</span>
+      <span id="quota" class="pill" title="이 브라우저에서 오늘 사용한 추정 할당량 (태평양 시간 자정에 초기화)">오늘 0 / 10,000</span>
     </div>
   </header>
 
   <nav class="tabs" role="tablist">
-    <button role="tab" data-tab="channels" class="active"><span class="no">01</span>채널 분석</button>
+    <button role="tab" data-tab="channels" class="active"><span class="no">01</span>채널별 비교</button>
     <button role="tab" data-tab="videos"><span class="no">02</span>영상 분석</button>
     <button role="tab" data-tab="search"><span class="no">03</span>키워드 검색</button>
-    <button role="tab" data-tab="comments"><span class="no">04</span>댓글 수집</button>
+    <button role="tab" data-tab="comments"><span class="no">04</span>댓글 분석</button>
     <button role="tab" data-tab="settings"><span class="no">05</span>API 키 설정</button>
   </nav>
 
   <main>
     <!-- 채널 분석 -->
     <section id="tab-channels" class="panel active">
-      <div class="panel-head"><span class="kicker">(01) — CHANNELS</span><h2 class="title">채널을 나란히 놓고 보기</h2></div>
+      <div class="panel-head"><span class="kicker">(01) — CHANNELS</span><h2 class="title">채널별 비교</h2></div>
       <div class="card">
         <label class="field">
           <span>채널 목록 <em>한 줄에 하나씩 · 채널 URL, @핸들, 채널 ID(UC…)</em></span>
@@ -84,7 +72,7 @@
 
     <!-- 영상 분석 -->
     <section id="tab-videos" class="panel">
-      <div class="panel-head"><span class="kicker">(02) — VIDEOS</span><h2 class="title">영상 성과 모아 보기</h2></div>
+      <div class="panel-head"><span class="kicker">(02) — VIDEOS</span><h2 class="title">영상 분석</h2></div>
       <div class="card">
         <label class="field">
           <span>영상 목록 <em>한 줄에 하나씩 · 영상 URL, 쇼츠 URL, youtu.be 링크, 영상 ID</em></span>
@@ -101,7 +89,7 @@
 
     <!-- 키워드 검색 -->
     <section id="tab-search" class="panel">
-      <div class="panel-head"><span class="kicker">(03) — SEARCH</span><h2 class="title">키워드로 찾아보기</h2></div>
+      <div class="panel-head"><span class="kicker">(03) — SEARCH</span><h2 class="title">키워드 검색</h2></div>
       <div class="card">
         <div class="grid">
           <label class="field wide">
@@ -160,7 +148,7 @@
 
     <!-- 댓글 수집 -->
     <section id="tab-comments" class="panel">
-      <div class="panel-head"><span class="kicker">(04) — COMMENTS</span><h2 class="title">댓글 속 이야기 듣기</h2></div>
+      <div class="panel-head"><span class="kicker">(04) — COMMENTS</span><h2 class="title">댓글 분석</h2></div>
       <div class="card">
         <div class="grid">
           <label class="field wide">
@@ -191,7 +179,7 @@
 
     <!-- 설정 -->
     <section id="tab-settings" class="panel">
-      <div class="panel-head"><span class="kicker">(05) — SETTINGS</span><h2 class="title">API 키 연결하기</h2></div>
+      <div class="panel-head"><span class="kicker">(05) — SETTINGS</span><h2 class="title">API 키 설정</h2></div>
       <div class="card">
         <h2>YouTube Data API 키</h2>
         <div class="row keyrow">
@@ -215,7 +203,7 @@
           <li><b>API 및 서비스 → 라이브러리</b>에서 <b>YouTube Data API v3</b>를 검색해 <b>사용</b>을 누릅니다.</li>
           <li><b>API 및 서비스 → 사용자 인증 정보 → 사용자 인증 정보 만들기 → API 키</b>를 선택합니다.</li>
           <li>(권장) 생성된 키의 <b>키 제한</b>에서 API 제한을 <b>YouTube Data API v3</b>로, 웹사이트 제한을 이 사이트 주소로 설정합니다.</li>
-          <li>키를 복사해 위 입력란에 붙여넣고 <b>저장 → 연결 테스트</b>를 누르세요.</li>
+          <li>키를 복사해 입력란에 붙여넣고 <b>저장</b>하세요.</li>
         </ol>
         <p class="muted">무료로 하루 10,000 유닛이 제공되며 태평양 시간 자정(한국 시간 오후 4~5시)에 초기화됩니다.</p>
       </div>
@@ -238,6 +226,24 @@
   </main>
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <div id="keyModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="keyModalTitle" hidden>
+    <div class="modal-sheet">
+      <button id="mClose" class="modal-x" type="button" aria-label="닫기">×</button>
+      <span class="kicker">START</span>
+      <h2 id="keyModalTitle" class="title">API 키 입력</h2>
+      <p class="muted">이 사이트는 본인의 YouTube Data API 키로 동작합니다. 키는 이 브라우저에만 저장되고 Google API로만 전달됩니다.</p>
+      <div class="row keyrow">
+        <input id="mKey" type="password" placeholder="AIza로 시작하는 API 키" autocomplete="off" spellcheck="false">
+        <button id="mSave" class="primary">저장</button>
+      </div>
+      <label class="check"><input id="mRemember" type="checkbox" checked> 이 브라우저에 저장</label>
+      <div id="mMsg" class="status-line"></div>
+      <h3 class="modal-sub">API 키 발급 방법</h3>
+      <div id="mSteps"></div>
+      <p class="muted">무료 할당량은 하루 10,000 유닛이며 태평양 시간 자정(한국 시간 오후 4~5시)에 초기화됩니다.</p>
+    </div>
+  </div>
+
   <script src="app.js"></script>
 </body>
 </html>

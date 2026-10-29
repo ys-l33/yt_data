@@ -51,43 +51,19 @@ h2 { font-family: var(--f-title); font-size: 19px; margin-bottom: 14px; }
 
 /* ---------- 헤더 (잔디 위) ---------- */
 .top {
-  position: relative;
   max-width: 1280px; margin: 0 auto;
-  display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; flex-wrap: wrap;
-  padding: 36px 28px 26px;
+  display: flex; align-items: flex-end; justify-content: space-between; gap: 16px 24px; flex-wrap: wrap;
+  padding: 40px 28px 28px;
 }
-.hatch {
-  position: absolute; z-index: 0; top: 22px; right: 300px; width: 230px; height: 128px;
-  border: 1px solid rgba(252, 246, 245, .55);
-  background:
-    repeating-linear-gradient(45deg, rgba(252, 246, 245, .38) 0 1px, transparent 1px 13px),
-    repeating-linear-gradient(-45deg, rgba(252, 246, 245, .38) 0 1px, transparent 1px 13px);
-  transform: rotate(-3deg);
-}
-.brand, .masthead { position: relative; z-index: 1; }
-.brand { display: flex; align-items: flex-end; gap: 18px; }
-.sprig { width: 62px; height: 62px; fill: var(--ivory); flex: none; shape-rendering: crispEdges; margin-bottom: 8px; }
-.wordmark .kicker { color: var(--ink); display: block; margin-bottom: 4px; }
-.wordmark h1 {
+.wordmark {
   font-family: var(--f-display);
   font-style: italic; font-weight: 400;
   font-variation-settings: "opsz" 144, "SOFT" 100, "WONK" 1;
-  font-size: 68px; line-height: .9; letter-spacing: -.025em;
+  font-size: 52px; line-height: 1; letter-spacing: -.025em;
   color: var(--ivory);
 }
-.smile {
-  font-family: var(--f-cond); font-style: normal; font-weight: 300;
-  font-size: 40px; letter-spacing: 0; margin-left: 6px; color: var(--ink);
-}
-
-.masthead { display: grid; grid-template-columns: auto auto; align-items: end; gap: 6px 28px; }
-.fine {
-  margin: 0; color: var(--ink);
-  font-family: var(--f-cond); font-style: italic; font-weight: 300;
-  font-size: 22px; line-height: 1.05; letter-spacing: .02em; text-align: center;
-}
-.fine.small { font-style: normal; font-weight: 500; font-size: 10.5px; line-height: 1.35; letter-spacing: .1em; text-align: left; }
-.status { grid-column: 1 / -1; display: flex; gap: 6px; justify-content: flex-end; flex-wrap: wrap; margin-top: 10px; }
+.status { display: flex; gap: 6px; flex-wrap: wrap; }
+#keyStatus { cursor: pointer; }
 .pill {
   padding: 3px 10px; font-size: 12px; font-weight: 600;
   border: 1px solid var(--ink); color: var(--ink); white-space: nowrap;
@@ -308,21 +284,43 @@ table.plain th { color: var(--ink-2); font-size: 12px; border-bottom-color: var(
 }
 .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
+/* ---------- API 키 팝업 ---------- */
+.modal {
+  position: fixed; inset: 0; z-index: 90;
+  display: grid; place-items: center; padding: 24px;
+  background: rgba(14, 59, 35, .55);
+  animation: fade .25s ease-out;
+}
+.modal[hidden] { display: none; }
+.modal-sheet {
+  position: relative; width: min(620px, 100%); max-height: calc(100vh - 48px); overflow: auto;
+  background: var(--ivory); padding: 32px 36px 28px;
+  box-shadow: 0 30px 60px -30px rgba(0, 0, 0, .5);
+  animation: settle .35s ease-out;
+}
+.modal-sheet .kicker { color: var(--ink-2); }
+.modal-sheet .title { font-family: var(--f-title); font-size: 28px; margin: 4px 0 10px; padding-bottom: 12px; border-bottom: 1px solid var(--ink); }
+.modal-sheet .keyrow { margin-top: 16px; }
+.modal-sheet .status-line { margin: 10px 0 0; }
+.modal-sub { font-family: var(--f-title); font-size: 17px; margin: 22px 0 12px; padding-top: 18px; border-top: 1px solid var(--rule); }
+.modal-x {
+  position: absolute; top: 14px; right: 16px; width: 34px; height: 34px;
+  border: 0; background: none; color: var(--ink); font-size: 26px; line-height: 1; cursor: pointer;
+}
+.modal-x:hover { color: var(--green); }
+body.modal-open { overflow: hidden; }
+@keyframes fade { from { opacity: 0; } }
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }
 
 @media (max-width: 860px) {
-  .hatch { right: 16px; width: 150px; height: 90px; top: 16px; }
-  .masthead .fine { display: none; }
-  .status { justify-content: flex-start; }
 }
 @media (max-width: 720px) {
   .top, .tabs, main { margin-left: 12px; margin-right: 12px; }
   .top { padding-top: 24px; padding-bottom: 18px; }
-  .wordmark h1 { font-size: 48px; }
-  .smile { font-size: 30px; }
-  .sprig { width: 44px; height: 44px; }
+  .wordmark { font-size: 36px; }
   .tabs button { padding: 10px 13px; }
   main { padding: 24px 16px 40px 40px; }
   main::before, main::after { left: 14px; width: 12px; height: 12px; }
@@ -331,4 +329,7 @@ table.plain th { color: var(--ink-2); font-size: 12px; border-bottom-color: var(
   .two-col { grid-template-columns: 1fr; }
   .help dl { grid-template-columns: 1fr; }
   .row > .primary { margin-left: 0; width: 100%; }
+  .modal { padding: 12px; }
+  .modal-sheet { padding: 24px 18px 20px; }
+  .modal-sheet .keyrow .primary { width: auto; }
 }

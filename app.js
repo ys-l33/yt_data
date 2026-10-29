@@ -135,6 +135,7 @@ function normVideo(v) {
     channelTitle: sn.channelTitle || '',
     publishedAt: published,
     thumb: sn.thumbnails?.default?.url || '',
+    thumbs: sn.thumbnails || {},
     tags: (sn.tags || []).join(', '),
     categoryId: sn.categoryId,
     live: sn.liveBroadcastContent || 'none',
@@ -1090,6 +1091,99 @@ function renderComments() {
   applyFilter();
 }
 
+/* ---------------- 탭: 썸네일 다운로드 ---------------- */
+
+let thumbResults = [];
+const THUMB_SIZES = [['maxres', '최대'], ['standard', '고화질'], ['high', '높음'], ['medium', '중간'], ['default', '작게']];
+
+// API가 알려준 실제로 있는 크기만 큰 것부터 (maxres는 영상에 따라 없을 수 있다)
+const thumbOptions = v => THUMB_SIZES
+  .filter(([k]) => v.thumbs[k]?.url)
+  .map(([k, label]) => ({ key: k, label, ...v.thumbs[k] }));
+
+const thumbFileName = (v, o) => `${(v.title.replace(/[\\/:*?"<>|\n\r]+/g, ' ').trim().slice(0, 80) || v.id)}_${o.width}x${o.height}.jpg`;
+
+// 다른 사이트 이미지는 a[download]로 바로 저장되지 않아 blob으로 받아 저장한다.
+// 브라우저가 막으면(CORS) 새 탭으로 열어 직접 저장하게 한다.
+async function downloadImage(url, filename) {
+  try {
+    const res = await fetch(url, { mode: 'cors' });
+    if (!res.ok) throw new Error(String(res.status));
+    const blob = await res.blob();
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    return true;
+  } catch {
+    window.open(url, '_blank', 'noopener');
+    toast('바로 저장이 막혀 새 탭으로 열었습니다. 이미지를 우클릭해 저장해 주세요.');
+    return false;
+  }
+}
+
+async function runThumbs() {
+  const lines = $('#tInput').value.split('\n').map(s => s.trim()).filter(Boolean);
+  const ids = unique(lines.map(parseVideoId).filter(Boolean));
+  const bad = lines.filter(l => !parseVideoId(l));
+  if (!ids.length) return toast('영상 URL이나 ID를 입력해 주세요.');
+
+  const vids = [];
+  let checked = 0, quotaHit = false;
+  try {
+    for (const part of chunk(ids, 50)) {
+      setStatus('#tStatus', `영상 ${ids.length}개 확인 중… ${checked}개 완료`, 'busy');
+      vids.push(...await fetchVideos(part));
+      checked += part.length;
+    }
+  } catch (e) {
+    if (!isQuotaError(e) || !vids.length) throw e;
+    quotaHit = true;
+  }
+  thumbResults = vids;
+  const missing = checked - vids.length;
+
+  const body = block($('#tResult'), {
+    title: `썸네일 ${vids.length}개`,
+    sub: [missing ? `비공개·삭제 등으로 ${missing}개를 불러오지 못했습니다` : '', bad.length ? `인식하지 못한 줄 ${bad.length}개` : ''].filter(Boolean).join(' · '),
+    actions: vids.length > 1 ? [{
+      label: '전체를 가장 큰 크기로 받기',
+      run: async () => {
+        for (const v of thumbResults) {
+          const best = thumbOptions(v)[0];
+          if (!best) continue;
+          // 한 번이라도 막히면 탭이 여러 개 열리지 않도록 멈춘다
+          if (!await downloadImage(best.url, thumbFileName(v, best))) break;
+          await new Promise(r => setTimeout(r, 300));
+        }
+      },
+    }] : [],
+  });
+  body.innerHTML = `<div class="thumb-grid">${vids.map((v, i) => {
+    const opts = thumbOptions(v);
+    const best = opts[0];
+    return `<figure class="thumb-card">
+      ${best ? `<a href="${esc(best.url)}" target="_blank" rel="noopener" class="thumb-img"><img src="${esc(best.url)}" alt="" loading="lazy"></a>` : '<div class="thumb-img empty">썸네일 없음</div>'}
+      <figcaption>
+        <a class="thumb-title" href="${esc(v.url)}" target="_blank" rel="noopener">${esc(v.title)}</a>
+        <div class="muted">${esc(v.channelTitle)}</div>
+        <div class="thumb-sizes">${opts.map(o => `<button type="button" class="ghost small" data-i="${i}" data-size="${o.key}">${o.label} ${o.width}×${o.height}</button>`).join('')}</div>
+      </figcaption>
+    </figure>`;
+  }).join('')}</div>`;
+  body.onclick = e => {
+    const btn = e.target.closest('[data-size]');
+    if (!btn) return;
+    const v = thumbResults[+btn.dataset.i];
+    const o = thumbOptions(v).find(x => x.key === btn.dataset.size);
+    if (o) downloadImage(o.url, thumbFileName(v, o));
+  };
+  if (quotaHit) quotaNotice('#tStatus', `영상 ${ids.length}개 중 ${checked}개까지만 불러왔습니다.`);
+}
+
 /* ---------------- 탭: 설정 ---------------- */
 
 function initSettings() {
@@ -1175,6 +1269,7 @@ const PANEL_RESULTS = {
   videos: ['#vResult'],
   search: ['#sResult'],
   comments: ['#cResult'],
+  thumbs: ['#tResult'],
 };
 
 function resetPanel(name) {
@@ -1191,6 +1286,7 @@ function resetPanel(name) {
   if (name === 'videos') videoResults = [];
   if (name === 'search') { searchSession = null; searchResults = []; updateSearchCost(); }
   if (name === 'comments') commentData = { video: null, comments: [] };
+  if (name === 'thumbs') thumbResults = [];
 }
 
 function switchTab(name) {
@@ -1211,6 +1307,7 @@ function init() {
   $('#vRun').onclick = () => run($('#vRun'), '#vStatus', runVideos);
   $('#sRun').onclick = () => run($('#sRun'), '#sStatus', runSearch);
   $('#cRun').onclick = () => run($('#cRun'), '#cStatus', runComments);
+  $('#tRun').onclick = () => run($('#tRun'), '#tStatus', runThumbs);
   ['#sQuery', '#sExTitle', '#sExDesc', '#sExTags', '#sExChannel'].forEach(s => {
     $(s).onkeydown = e => { if (e.key === 'Enter') $('#sRun').click(); };
   });

@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@0,300;0,500;1,300&family=Fraunces:ital,opsz,wght,SOFT,WONK@0,9..144,300..600,0..100,0..1;1,9..144,300..600,0..100,0..1&family=Gowun+Batang:wght@400;700&display=swap">
-  <link rel="stylesheet" href="style.css?v=20261029-13">
+  <link rel="stylesheet" href="style.css?v=20261029-14">
 </head>
 <body>
   <header class="top">
@@ -25,7 +25,8 @@
     <button role="tab" data-tab="videos"><span class="no">02</span>영상별 비교</button>
     <button role="tab" data-tab="search"><span class="no">03</span>키워드 검색</button>
     <button role="tab" data-tab="comments"><span class="no">04</span>댓글 분석</button>
-    <button role="tab" data-tab="settings"><span class="no">05</span>API 키 설정</button>
+    <button role="tab" data-tab="thumbs"><span class="no">05</span>썸네일 다운로드</button>
+    <button role="tab" data-tab="settings"><span class="no">06</span>API 키 설정</button>
   </nav>
 
   <main>
@@ -194,9 +195,26 @@
       <div id="cResult"></div>
     </section>
 
+    <!-- 썸네일 다운로드 -->
+    <section id="tab-thumbs" class="panel">
+      <div class="panel-head"><span class="kicker">(05) — THUMBNAILS</span><h2 class="title">썸네일 다운로드</h2></div>
+      <div class="card">
+        <label class="field">
+          <span>영상 목록 <em>한 줄에 하나씩 · 영상 URL, 쇼츠 URL, youtu.be 링크, 영상 ID</em></span>
+          <textarea id="tInput" rows="4" placeholder="https://www.youtube.com/watch?v=xxxxxxxxxxx&#10;https://youtu.be/xxxxxxxxxxx"></textarea>
+        </label>
+        <div class="row">
+          <span class="muted">영상마다 실제로 있는 크기만 보여줍니다. 영상 50개당 할당량 1이 사용됩니다.</span>
+          <button id="tRun" class="primary">불러오기</button>
+        </div>
+      </div>
+      <div id="tStatus" class="status-line"></div>
+      <div id="tResult"></div>
+    </section>
+
     <!-- 설정 -->
     <section id="tab-settings" class="panel">
-      <div class="panel-head"><span class="kicker">(05) — SETTINGS</span><h2 class="title">API 키 설정</h2></div>
+      <div class="panel-head"><span class="kicker">(06) — SETTINGS</span><h2 class="title">API 키 설정</h2></div>
       <div class="card">
         <h2>YouTube Data API 키</h2>
         <div class="row keyrow">
@@ -261,6 +279,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=20261029-13"></script>
+  <script src="app.js?v=20261029-14"></script>
 </body>
 </html>

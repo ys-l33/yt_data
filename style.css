@@ -211,7 +211,9 @@ button:focus-visible, .tabs button:focus-visible { outline: 2px solid var(--gree
 
 .tablewrap { overflow: auto; max-height: 70vh; border: 1px solid var(--rule); background: var(--paper-hi); }
 table.data { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
-table.data th, table.data td { padding: 10px 14px; border-bottom: 1px solid var(--rule); text-align: left; vertical-align: middle; }
+table.data th, table.data td { padding: 10px 14px; border-bottom: 1px solid var(--rule); text-align: center; vertical-align: middle; }
+/* 한글이 글자 단위로 줄바꿈되지 않도록 띄어쓰기 기준으로만 줄바꿈 */
+table.data td { word-break: keep-all; overflow-wrap: break-word; }
 table.data th {
   position: sticky; top: 0; z-index: 1; background: var(--ivory);
   border-bottom: 1px solid var(--ink);
@@ -223,18 +225,21 @@ table.data tbody tr:hover { background: var(--tint); }
 table.data tr.clickable { cursor: pointer; }
 table.data tr.selected, table.data tr.selected:hover { background: var(--tint-2); }
 table.data tr.selected td:first-child { box-shadow: inset 3px 0 0 var(--green); }
-.num { text-align: right !important; white-space: nowrap; }
+.num { white-space: nowrap; }
+/* 긴 댓글 본문은 가운데 정렬하면 읽기 어려워 왼쪽 정렬 유지 */
+table.data td.text, table.data th.text { text-align: left; }
 td.title { min-width: 240px; max-width: 420px; }
 td.title a { text-decoration: none; font-weight: 600; }
 td.title a:hover { text-decoration: underline; text-decoration-color: var(--green); text-decoration-thickness: 2px; }
 td.text { min-width: 320px; max-width: 640px; white-space: pre-wrap; word-break: break-word; }
-.chcell { display: flex; align-items: center; gap: 10px; min-width: 200px; }
+.chcell { display: flex; align-items: center; justify-content: center; gap: 10px; min-width: 200px; text-align: left; }
 .chcell img { width: 32px; height: 32px; border-radius: 50%; flex: none; background: var(--tint); filter: saturate(.85); }
 .chcell a { font-weight: 700; text-decoration: none; }
 .chcell a:hover { text-decoration: underline; text-decoration-color: var(--green); }
 .tag {
   display: inline-block; padding: 1px 8px; font-size: 11px; font-weight: 600;
   border: 1px solid var(--rule-2); color: var(--ink);
+  white-space: nowrap;
 }
 .tag.short {
   border-color: var(--green);

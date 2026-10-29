@@ -125,6 +125,7 @@ function normVideo(v) {
     id: v.id,
     url: `https://www.youtube.com/watch?v=${v.id}`,
     title: sn.title || '',
+    description: sn.description || '',
     channelId: sn.channelId,
     channelTitle: sn.channelTitle || '',
     publishedAt: published,
@@ -352,7 +353,7 @@ function renderTable(el, cols, rows, { sortKey = null, dir = -1, onRowClick, row
     const head = cols.map(c => {
       const isNum = c.type && c.type !== 'text';
       const arrow = sortKey === c.key ? (dir > 0 ? ' ▲' : ' ▼') : '';
-      return `<th data-k="${c.key}" class="${isNum ? 'num' : ''} ${sortKey === c.key ? 'sorted' : ''}">${esc(c.label)}${arrow}</th>`;
+      return `<th data-k="${c.key}" class="${isNum ? 'num' : ''} ${c.cls || ''} ${sortKey === c.key ? 'sorted' : ''}">${esc(c.label)}${arrow}</th>`;
     }).join('');
     const body = list.map(([r, i]) => {
       const cls = [onRowClick ? 'clickable' : '', rowClass?.(r) || ''].join(' ');
@@ -615,7 +616,7 @@ function showChannelDetail(c) {
   $('#chDetail').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
-/* ---------------- 탭: 영상 분석 ---------------- */
+/* ---------------- 탭: 영상별 비교 ---------------- */
 
 let videoResults = [];
 
@@ -675,10 +676,17 @@ function updateSearchCost() {
 async function runSearch() {
   const q = $('#sQuery').value.trim();
   if (!q) return toast('검색어를 입력해 주세요.');
+  // YouTube 검색은 비슷한 말까지 넓게 잡으므로(예: 페이 → 페이커) 제외 단어를 -연산자로 보내고, 결과에서도 한 번 더 거른다
+  const excludes = unique($('#sExclude').value.split(',').map(s => s.trim()).filter(Boolean));
+  const apiQuery = q + excludes.map(w => ` -${/\s/.test(w) ? `"${w}"` : w}`).join('');
+  const isExcluded = (...texts) => {
+    const hay = texts.join(' ').toLowerCase();
+    return excludes.some(w => hay.includes(w.toLowerCase()));
+  };
   const type = $('#sType').value, count = +$('#sCount').value;
   const days = +$('#sPeriod').value;
   const params = {
-    part: 'snippet', type, q,
+    part: 'snippet', type, q: apiQuery,
     order: $('#sOrder').value,
     regionCode: $('#sRegion').value,
     relevanceLanguage: $('#sRegion').value === 'KR' ? 'ko' : undefined,
@@ -699,21 +707,26 @@ async function runSearch() {
   setStatus('#sStatus', '상세 지표 불러오는 중…', 'busy');
 
   if (type === 'video') {
-    const vids = await fetchVideos(ids);
+    const all = await fetchVideos(ids);
+    const vids = all.filter(v => !isExcluded(v.title, v.description, v.tags, v.channelTitle));
     await attachChannelStats(vids);
     searchResults = vids;
     const cols = videoCols(true);
+    const dropped = all.length - vids.length;
     const body = block($('#sResult'), {
       title: `“${q}” 영상 검색 결과 ${vids.length}건`,
-      sub: '구독자 대비 조회율이 높은 영상은 알고리즘 추천을 받은 바이럴 콘텐츠일 가능성이 큽니다.',
+      sub: (dropped ? `제외 단어가 들어간 ${dropped}건을 뺐습니다 · ` : '') + '구독자 대비 조회율이 높은 영상은 알고리즘 추천을 받은 바이럴 콘텐츠일 가능성이 큽니다.',
       actions: [
-        { label: '채널들을 채널 분석으로 보내기', run: () => sendToChannels(vids.map(v => v.channelId)) },
+        { label: '영상들을 영상별 비교로 보내기', run: () => sendToVideos(vids.map(v => v.id)) },
+        { label: '채널들을 채널별 비교로 보내기', run: () => sendToChannels(vids.map(v => v.channelId)) },
         { label: 'CSV 다운로드', run: () => downloadCSV(`검색_${q}`, [...cols, ...videoCsvExtra], searchResults) },
       ],
     });
     renderTable(body, cols, vids);
   } else {
-    const chs = await fetchChannels(ids);
+    const all = await fetchChannels(ids);
+    const chs = all.filter(c => !isExcluded(c.title, c.handle, c.description));
+    const dropped = all.length - chs.length;
     searchResults = chs;
     const cols = [
       channelCol,
@@ -726,9 +739,9 @@ async function runSearch() {
     ];
     const body = block($('#sResult'), {
       title: `“${q}” 채널 검색 결과 ${chs.length}건`,
-      sub: '정확한 최근 성과는 “채널 분석으로 보내기” 후 확인하세요.',
+      sub: (dropped ? `제외 단어가 들어간 ${dropped}건을 뺐습니다 · ` : '') + '정확한 최근 성과는 “채널별 비교로 보내기” 후 확인하세요.',
       actions: [
-        { label: '채널 분석으로 보내기', run: () => sendToChannels(chs.map(c => c.id)) },
+        { label: '채널별 비교로 보내기', run: () => sendToChannels(chs.map(c => c.id)) },
         { label: 'CSV 다운로드', run: () => downloadCSV(`채널검색_${q}`, [{ key: 'title', label: '채널명', type: 'text' }, { key: 'handle', label: '핸들', type: 'text' }, { key: 'id', label: '채널ID', type: 'text' }, { key: 'url', label: 'URL', type: 'text' }, ...cols.slice(1)], searchResults) },
       ],
     });
@@ -740,6 +753,12 @@ function sendToChannels(ids) {
   $('#chInput').value = unique(ids).join('\n');
   switchTab('channels');
   toast(`채널 ${unique(ids).length}개를 입력했습니다. “분석하기”를 눌러 주세요.`);
+}
+
+function sendToVideos(ids) {
+  $('#vInput').value = unique(ids).map(id => `https://www.youtube.com/watch?v=${id}`).join('\n');
+  switchTab('videos');
+  toast(`영상 ${unique(ids).length}개를 입력했습니다. “분석하기”를 눌러 주세요.`);
 }
 
 /* ---------------- 탭: 댓글 수집 ---------------- */
@@ -982,7 +1001,7 @@ function init() {
   $('#vRun').onclick = () => run($('#vRun'), '#vStatus', runVideos);
   $('#sRun').onclick = () => run($('#sRun'), '#sStatus', runSearch);
   $('#cRun').onclick = () => run($('#cRun'), '#cStatus', runComments);
-  $('#sQuery').onkeydown = e => { if (e.key === 'Enter') $('#sRun').click(); };
+  $('#sQuery').onkeydown = $('#sExclude').onkeydown = e => { if (e.key === 'Enter') $('#sRun').click(); };
   $('#cVideo').onkeydown = e => { if (e.key === 'Enter') $('#cRun').click(); };
   $('#cKeywords').oninput = () => renderComments();
   ['#sType', '#sCount'].forEach(s => { $(s).onchange = updateSearchCost; });

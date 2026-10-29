@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@0,300;0,500;1,300&family=Fraunces:ital,opsz,wght,SOFT,WONK@0,9..144,300..600,0..100,0..1;1,9..144,300..600,0..100,0..1&family=Gowun+Batang:wght@400;700&display=swap">
-  <link rel="stylesheet" href="style.css?v=20261029-3">
+  <link rel="stylesheet" href="style.css?v=20261029-4">
 </head>
 <body>
   <header class="top">
@@ -22,7 +22,7 @@
 
   <nav class="tabs" role="tablist">
     <button role="tab" data-tab="channels" class="active"><span class="no">01</span>채널별 비교</button>
-    <button role="tab" data-tab="videos"><span class="no">02</span>영상 분석</button>
+    <button role="tab" data-tab="videos"><span class="no">02</span>영상별 비교</button>
     <button role="tab" data-tab="search"><span class="no">03</span>키워드 검색</button>
     <button role="tab" data-tab="comments"><span class="no">04</span>댓글 분석</button>
     <button role="tab" data-tab="settings"><span class="no">05</span>API 키 설정</button>
@@ -71,9 +71,9 @@
       <div id="chDetail"></div>
     </section>
 
-    <!-- 영상 분석 -->
+    <!-- 영상별 비교 -->
     <section id="tab-videos" class="panel">
-      <div class="panel-head"><span class="kicker">(02) — VIDEOS</span><h2 class="title">영상 분석</h2></div>
+      <div class="panel-head"><span class="kicker">(02) — VIDEOS</span><h2 class="title">영상별 비교</h2></div>
       <div class="card">
         <label class="field">
           <span>영상 목록 <em>한 줄에 하나씩 · 영상 URL, 쇼츠 URL, youtu.be 링크, 영상 ID</em></span>
@@ -94,8 +94,12 @@
       <div class="card">
         <div class="grid">
           <label class="field wide">
-            <span>검색어</span>
+            <span>검색어 <em>여러 단어 중 하나라도 포함: | 로 구분 (예: 카카오페이 | 네이버페이)</em></span>
             <input id="sQuery" type="text" placeholder="예: 비건 화장품 리뷰">
+          </label>
+          <label class="field wide">
+            <span>제외할 단어 <em>쉼표로 구분 · 제목·설명·태그·채널명에 이 단어가 있는 결과는 뺍니다</em></span>
+            <input id="sExclude" type="text" placeholder="예: 페이커, 롤드컵">
           </label>
           <label class="field">
             <span>검색 대상</span>
@@ -245,6 +249,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=20261029-3"></script>
+  <script src="app.js?v=20261029-4"></script>
 </body>
 </html>

@@ -193,6 +193,7 @@ const SHORTS_LAUNCH = new Date('2020-09-14');
 function classifyShort(v) {
   if (v.isLive) return { isShort: false, shortCheck: '' };
   const maxSecs = v.publishedAt >= SHORTS_3MIN_SINCE ? 180 : 60;
+  if (v.duration > maxSecs) return { isShort: false, shortCheck: '길이 확인' };
   if (v.embedW && v.embedH) {
     const vertical = v.embedH >= v.embedW;
     const isShort = vertical && v.duration > 0 && v.duration <= maxSecs && v.publishedAt >= SHORTS_LAUNCH;

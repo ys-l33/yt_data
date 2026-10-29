@@ -773,6 +773,7 @@ async function runSearch() {
     pageToken: undefined,
     started: false,
     dropped: 0, kindDropped: 0, removed: 0,
+    undo: [],             // 삭제 취소용: [{ item, index }]
     sort: {},
   };
   const { quotaMsg } = await searchMore(session, count);
@@ -887,6 +888,7 @@ function renderSearch() {
         <select id="sMoreN"><option>10</option><option selected>25</option><option>50</option></select>
         건 <button type="button" id="sMore" class="ghost small" ${exhausted ? 'disabled' : ''}>더 검색하기</button>
       </label>
+      <button type="button" id="sUndo" class="ghost small" ${s.undo.length ? '' : 'disabled'}>↶ 삭제 취소${s.undo.length ? ` (${s.undo.length})` : ''}</button>
       <span class="muted">${exhausted ? '더 가져올 결과가 없습니다' : '이미 받은 결과와 삭제한 결과는 다시 나오지 않습니다 · 검색 1회 100 유닛'}</span>
     </div>
     <div class="stable"></div>`;
@@ -896,10 +898,21 @@ function renderSearch() {
     const btn = e.target.closest('[data-del]');
     if (!btn) return;
     s.sort = table.sortState();
-    s.results = s.results.filter(r => r.id !== btn.dataset.del);
+    const index = s.results.findIndex(r => r.id === btn.dataset.del);
+    if (index < 0) return;
+    s.undo.push({ item: s.results[index], index });
+    s.results.splice(index, 1);
     s.removed++;
     renderSearch();
   });
+  $('#sUndo', body).onclick = () => {
+    const last = s.undo.pop();
+    if (!last) return;
+    s.sort = table.sortState();
+    s.results.splice(Math.min(last.index, s.results.length), 0, last.item);
+    s.removed--;
+    renderSearch();
+  };
   $('#sMore', body).onclick = () => run($('#sMore', body), '#sStatus', async () => {
     s.sort = table.sortState();
     const n = +$('#sMoreN', body).value;
@@ -1156,6 +1169,30 @@ function initKeyModal() {
 
 /* ---------------- 탭 전환 · 초기화 ---------------- */
 
+// 탭 이름을 누르면 그 탭의 입력값·결과를 처음 상태로 되돌린다 (API 키 설정 탭은 키가 지워지지 않도록 제외)
+const PANEL_RESULTS = {
+  channels: ['#chResult', '#chDetail'],
+  videos: ['#vResult'],
+  search: ['#sResult'],
+  comments: ['#cResult'],
+};
+
+function resetPanel(name) {
+  if (!PANEL_RESULTS[name]) return;
+  const panel = $('#tab-' + name);
+  panel.querySelectorAll('input, textarea, select').forEach(el => {
+    if (el.tagName === 'SELECT') el.selectedIndex = Math.max(0, [...el.options].findIndex(o => o.defaultSelected));
+    else if (el.type === 'checkbox') el.checked = el.defaultChecked;
+    else el.value = el.defaultValue;
+  });
+  panel.querySelectorAll('.status-line').forEach(el => setStatus('#' + el.id, ''));
+  PANEL_RESULTS[name].forEach(sel => { $(sel).innerHTML = ''; });
+  if (name === 'channels') channelResults = [];
+  if (name === 'videos') videoResults = [];
+  if (name === 'search') { searchSession = null; searchResults = []; updateSearchCost(); }
+  if (name === 'comments') commentData = { video: null, comments: [] };
+}
+
 function switchTab(name) {
   document.querySelectorAll('.tabs button').forEach(b => b.classList.toggle('active', b.dataset.tab === name));
   document.querySelectorAll('.panel').forEach(p => p.classList.toggle('active', p.id === 'tab-' + name));
@@ -1163,7 +1200,13 @@ function switchTab(name) {
 }
 
 function init() {
-  document.querySelectorAll('.tabs button').forEach(b => { b.onclick = () => switchTab(b.dataset.tab); });
+  document.querySelectorAll('.tabs button').forEach(b => {
+    b.onclick = () => {
+      resetPanel(b.dataset.tab);
+      switchTab(b.dataset.tab);
+      window.scrollTo({ top: 0 });
+    };
+  });
   $('#chRun').onclick = () => run($('#chRun'), '#chStatus', runChannels);
   $('#vRun').onclick = () => run($('#vRun'), '#vStatus', runVideos);
   $('#sRun').onclick = () => run($('#sRun'), '#sStatus', runSearch);

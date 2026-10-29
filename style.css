@@ -280,7 +280,9 @@ td.title { min-width: 240px; max-width: 420px; }
 td.title a { text-decoration: none; font-weight: 600; }
 td.title a:hover { text-decoration: underline; text-decoration-color: var(--green); text-decoration-thickness: 2px; }
 td.text { min-width: 320px; max-width: 640px; white-space: pre-wrap; word-break: break-word; }
-.chcell { display: flex; align-items: center; justify-content: center; gap: 10px; min-width: 200px; text-align: left; }
+/* 채널 칸은 폭을 고정해 로고·이름이 줄마다 같은 위치에서 시작하게 하고, 칸 자체는 가운데에 둔다 */
+.chcell { display: inline-flex; align-items: center; gap: 10px; width: 250px; text-align: left; vertical-align: middle; }
+.chcell > div { min-width: 0; overflow-wrap: anywhere; }
 .chcell img { width: 32px; height: 32px; border-radius: 50%; flex: none; background: var(--tint); filter: saturate(.85); }
 .chcell a { font-weight: 700; text-decoration: none; }
 .chcell a:hover { text-decoration: underline; text-decoration-color: var(--green); }

@@ -785,7 +785,7 @@ function showChannelDetail(c) {
   $('#chDetail').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
-/* ---------------- 탭: 영상별 비교 ---------------- */
+/* ---------------- 탭: 영상 비교·분석 ---------------- */
 
 let videoResults = [];
 
@@ -1053,7 +1053,7 @@ function renderSearch() {
     notes.length ? `${notes.join(', ')}을 빼고 다시 채웠습니다` : '',
     s.removed ? `직접 삭제한 ${s.removed}건` : '',
     exhausted ? '더 이상 검색 결과가 없습니다' : s.shortfall ? '조건에 맞는 결과가 적어 요청한 수보다 적게 찾았습니다' : '',
-    isVideo ? '' : '정확한 최근 성과는 “채널별 비교로 보내기” 후 확인하세요.',
+    isVideo ? '' : '정확한 최근 성과는 “채널 비교·분석로 보내기” 후 확인하세요.',
   ].filter(Boolean).join(' · ');
   const csvCols = isVideo
     ? [...cols, ...videoCsvExtra]
@@ -1063,10 +1063,10 @@ function renderSearch() {
     sub,
     actions: [
       ...(isVideo ? [
-        { label: '영상들을 영상별 비교로 보내기', run: () => sendToVideos(list.map(v => v.id)) },
-        { label: '채널들을 채널별 비교로 보내기', run: () => sendToChannels(list.map(v => v.channelId)) },
+        { label: '영상들을 영상 비교·분석로 보내기', run: () => sendToVideos(list.map(v => v.id)) },
+        { label: '채널들을 채널 비교·분석로 보내기', run: () => sendToChannels(list.map(v => v.channelId)) },
       ] : [
-        { label: '채널별 비교로 보내기', run: () => sendToChannels(list.map(c => c.id)) },
+        { label: '채널 비교·분석로 보내기', run: () => sendToChannels(list.map(c => c.id)) },
       ]),
       { label: 'CSV 다운로드', run: () => downloadCSV(`${isVideo ? '검색' : '채널검색'}_${s.q}`, csvCols, list) },
     ],
@@ -1594,7 +1594,7 @@ async function loadWeather() {
  * 다시 실행은 하지 않는다 (할당량이 쓰이므로 직접 누르게 한다).
  */
 const RECENT_MAX = 8;
-const TAB_NAMES = { channels: '채널별 비교', videos: '영상별 비교', search: '키워드 검색', comments: '댓글 분석', thumbs: '썸네일' };
+const TAB_NAMES = { channels: '채널 비교·분석', videos: '영상 비교·분석', search: '키워드 검색', comments: '댓글 분석', thumbs: '썸네일' };
 
 function loadRecent() {
   try { return JSON.parse(store('yt_recent') || '[]'); } catch { return []; }

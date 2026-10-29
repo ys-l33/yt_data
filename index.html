@@ -23,7 +23,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@0,300;0,500;1,300&family=Fraunces:ital,opsz,wght,SOFT,WONK@0,9..144,300..600,0..100,0..1;1,9..144,300..600,0..100,0..1&family=Gowun+Batang:wght@400;700&display=swap">
-  <link rel="stylesheet" href="style.css?v=20261029-37">
+  <link rel="stylesheet" href="style.css?v=20261029-38">
 </head>
 <body>
   <div class="ambient" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span><i></i><i></i><i></i><i></i><i></i><i></i></div>
@@ -40,8 +40,8 @@
 
   <nav class="tabs" role="tablist">
     <button role="tab" data-tab="home" class="active"><span class="no">00</span>홈</button>
-    <button role="tab" data-tab="channels"><span class="no">01</span>채널별 비교</button>
-    <button role="tab" data-tab="videos"><span class="no">02</span>영상별 비교</button>
+    <button role="tab" data-tab="channels"><span class="no">01</span>채널 비교·분석</button>
+    <button role="tab" data-tab="videos"><span class="no">02</span>영상 비교·분석</button>
     <button role="tab" data-tab="search"><span class="no">03</span>키워드 검색</button>
     <button role="tab" data-tab="comments"><span class="no">04</span>댓글 분석</button>
     <button role="tab" data-tab="thumbs"><span class="no">05</span>썸네일 다운로드</button>
@@ -55,8 +55,8 @@
       <p class="home-lead">내 YouTube API 키로 채널·영상·댓글 지표를 한 번에 뽑아 보고, 비교하고, CSV로 저장하는 분석 도구입니다.</p>
 
       <div class="feature-grid">
-        <button type="button" class="feature" data-go="channels"><span class="no">01</span><strong>채널별 비교</strong><span class="desc">여러 채널의 구독자, 평균·중앙값 조회수, 참여율 등을 한 표로 비교합니다.</span><span class="go">바로 가기 →</span></button>
-        <button type="button" class="feature" data-go="videos"><span class="no">02</span><strong>영상별 비교</strong><span class="desc">여러 영상의 조회수, 좋아요, 댓글, 참여율을 한 표로 모으고 합계를 냅니다.</span><span class="go">바로 가기 →</span></button>
+        <button type="button" class="feature" data-go="channels"><span class="no">01</span><strong>채널 비교·분석</strong><span class="desc">여러 채널의 구독자, 평균·중앙값 조회수, 참여율 등을 한 표로 비교합니다.</span><span class="go">바로 가기 →</span></button>
+        <button type="button" class="feature" data-go="videos"><span class="no">02</span><strong>영상 비교·분석</strong><span class="desc">여러 영상의 조회수, 좋아요, 댓글, 참여율을 한 표로 모으고 합계를 냅니다.</span><span class="go">바로 가기 →</span></button>
         <button type="button" class="feature" data-go="search"><span class="no">03</span><strong>키워드 검색</strong><span class="desc">키워드로 영상·채널을 검색하고 조회수, 구독자 등 지표를 함께 보여줍니다.</span><span class="go">바로 가기 →</span></button>
         <button type="button" class="feature" data-go="comments"><span class="no">04</span><strong>댓글 분석</strong><span class="desc">영상 댓글을 수집해 자주 쓰인 단어와 키워드 언급 수·비율을 보여줍니다.</span><span class="go">바로 가기 →</span></button>
         <button type="button" class="feature" data-go="thumbs"><span class="no">05</span><strong>썸네일 다운로드</strong><span class="desc">영상 썸네일을 크기별로 미리 보고 내려받습니다.</span><span class="go">바로 가기 →</span></button>
@@ -84,7 +84,7 @@
 
     <!-- 채널 분석 -->
     <section id="tab-channels" class="panel">
-      <div class="panel-head"><span class="kicker">(01) — CHANNELS</span><h2 class="title">채널별 비교</h2></div>
+      <div class="panel-head"><span class="kicker">(01) — CHANNELS</span><h2 class="title">채널 비교·분석</h2></div>
       <div class="card">
         <label class="field">
           <span>채널 목록 <em>한 줄에 하나씩 · 채널 URL, @핸들, 채널 ID(UC…)</em></span>
@@ -163,9 +163,9 @@
       <div id="chDetail"></div>
     </section>
 
-    <!-- 영상별 비교 -->
+    <!-- 영상 비교·분석 -->
     <section id="tab-videos" class="panel">
-      <div class="panel-head"><span class="kicker">(02) — VIDEOS</span><h2 class="title">영상별 비교</h2></div>
+      <div class="panel-head"><span class="kicker">(02) — VIDEOS</span><h2 class="title">영상 비교·분석</h2></div>
       <div class="card">
         <label class="field">
           <span>영상 목록 <em>한 줄에 하나씩 · 영상 URL, 쇼츠 URL, youtu.be 링크, 영상 ID</em></span>

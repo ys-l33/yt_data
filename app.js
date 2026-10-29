@@ -458,7 +458,7 @@ const statCards = items => `<div class="stats">${items.map(([label, value, sub])
 /* ---------------- 공통 컬럼 ---------------- */
 
 const titleCol = { key: 'title', label: '제목', type: 'text', cls: 'title', html: r => `<a href="${esc(r.url)}" target="_blank" rel="noopener">${esc(r.title)}</a>` };
-const channelCol = { key: 'title', label: '채널', type: 'text', html: r => `<div class="chcell">${r.thumb ? `<img src="${esc(r.thumb)}" alt="" loading="lazy">` : ''}<div><a href="${esc(r.url)}" target="_blank" rel="noopener">${esc(r.title)}</a><div class="muted">${esc(r.handle)}</div></div></div>` };
+const channelCol = { key: 'title', label: '채널', type: 'text', cls: 'left', html: r => `<div class="chcell">${r.thumb ? `<img src="${esc(r.thumb)}" alt="" loading="lazy">` : ''}<div><a href="${esc(r.url)}" target="_blank" rel="noopener">${esc(r.title)}</a><div class="muted">${esc(r.handle)}</div></div></div>` };
 const formatCol = { key: 'format', label: '형식', type: 'text', html: r => `<span class="tag ${r.isShort ? 'short' : ''}" title="${r.shortCheck === '추정' ? '길이·#shorts 기준 추정' : ''}">${esc(r.format)}${r.shortCheck === '추정' ? '*' : ''}</span>` };
 
 const videoCols = (withChannel) => [
@@ -518,8 +518,10 @@ function toast(msg) {
 
 /* ---------------- 차트 ---------------- */
 
+const chronological = vids => [...vids].sort((a, b) => a.publishedAt - b.publishedAt);
+
 function viewsChart(vids) {
-  const data = [...vids].sort((a, b) => a.publishedAt - b.publishedAt);
+  const data = chronological(vids);
   if (!data.length) return '';
   const W = 900, H = 240, L = 54, R = 10, T = 12, B = 26;
   const max = Math.max(...data.map(v => v.views), 1);
@@ -534,16 +536,91 @@ function viewsChart(vids) {
   }
   data.forEach((v, i) => {
     const x = L + i * bw + bw * 0.15, yy = y(v.views);
-    svg += `<rect class="bar ${v.isShort ? 'short' : ''}" x="${x}" y="${yy}" width="${Math.max(1, bw * 0.7)}" height="${H - B - yy}"><title>${esc(v.title)}\n${fmt.date(v.publishedAt)} · 조회수 ${fmt.num(v.views)} · 참여율 ${fmt.pct(v.er)}</title></rect>`;
+    // 막대가 얇아도 잡기 쉽도록 칸 전체 높이의 투명한 영역(hit)으로 마우스·터치를 받는다
+    svg += `<g class="col" data-i="${i}"><rect class="hit" x="${L + i * bw}" y="${T}" width="${bw}" height="${H - T - B}"/>`
+      + `<rect class="bar ${v.isShort ? 'short' : ''}" x="${x}" y="${yy}" width="${Math.max(1, bw * 0.7)}" height="${H - B - yy}"/></g>`;
   });
   svg += `<line class="avg" x1="${L}" x2="${W - R}" y1="${y(avg)}" y2="${y(avg)}"/>`;
   svg += `<line class="med" x1="${L}" x2="${W - R}" y1="${y(med)}" y2="${y(med)}"/>`;
   svg += `<text class="axis" x="${L}" y="${H - 6}">${fmt.date(data[0].publishedAt)}</text>`;
   svg += `<text class="axis" x="${W - R}" y="${H - 6}" text-anchor="end">${fmt.date(data[data.length - 1].publishedAt)}</text>`;
   return `<div class="chart-wrap"><svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="영상별 조회수">${svg}</svg>
+    <div class="chart-tip" hidden></div>
     <div class="legend"><span><i class="sw long"></i>일반 영상</span><span><i class="sw short"></i>쇼츠</span>
     <span><i class="ln avg"></i>평균 ${fmt.compact(avg)}</span><span><i class="ln med"></i>중앙값 ${fmt.compact(med)}</span>
-    <span>막대에 마우스를 올리면 영상 정보가 보입니다</span></div></div>`;
+    <span>막대에 마우스를 올리면 영상 정보가, 누르면 고정된 창과 영상 링크가 보입니다</span></div></div>`;
+}
+
+// 차트 막대의 정보 창: 마우스를 올리면 잠깐 보이고, 누르면 고정되어 링크를 누를 수 있다
+function bindChartTips(root, vids) {
+  const wrap = $('.chart-wrap', root);
+  if (!wrap) return;
+  const data = chronological(vids);
+  const tip = $('.chart-tip', wrap);
+  let pinned = null;
+
+  const show = (i, pin) => {
+    const v = data[i];
+    wrap.querySelectorAll('.col.active').forEach(c => c.classList.remove('active'));
+    const col = wrap.querySelector(`.col[data-i="${i}"]`);
+    col.classList.add('active');
+    tip.innerHTML = `
+      <strong class="tip-title">${esc(v.title)}</strong>
+      <div class="tip-meta">${fmt.date(v.publishedAt)} · ${esc(v.format)} · ${fmt.dur(v.duration)}</div>
+      <dl class="tip-stats">
+        <dt>조회수</dt><dd>${fmt.num(v.views)}</dd>
+        <dt>좋아요</dt><dd>${fmt.num(v.likes)}</dd>
+        <dt>댓글</dt><dd>${fmt.num(v.comments)}</dd>
+        <dt>참여율</dt><dd>${fmt.pct(v.er)}</dd>
+        <dt>일평균 조회수</dt><dd>${fmt.num(v.viewsPerDay)}</dd>
+      </dl>
+      ${pin ? `<a class="tip-link" href="${esc(v.url)}" target="_blank" rel="noopener">YouTube에서 보기 →</a><button type="button" class="tip-close" aria-label="닫기">×</button>` : '<div class="tip-hint">누르면 고정됩니다</div>'}`;
+    tip.classList.toggle('pinned', pin);
+    tip.hidden = false;
+    // 화면이 좁으면 옆에 띄울 자리가 없어 차트 바로 아래에 펼친다
+    const narrow = wrap.clientWidth < 560;
+    tip.classList.toggle('below', narrow);
+    if (narrow) { tip.style.left = tip.style.top = ''; return; }
+    // 막대를 가리지 않도록 오른쪽(자리가 없으면 왼쪽) 옆에 띄우고, 높이는 막대 끝에 맞춘다
+    const wr = wrap.getBoundingClientRect(), cr = col.querySelector('.hit').getBoundingClientRect(), br = col.querySelector('.bar').getBoundingClientRect();
+    const tw = tip.offsetWidth, th = tip.offsetHeight;
+    let left = cr.right - wr.left + 8;
+    if (left + tw > wr.width - 8) left = cr.left - wr.left - tw - 8;
+    left = Math.max(8, left);
+    const top = Math.max(8, Math.min(br.top - wr.top - 12, wr.height - th - 8));
+    tip.style.left = `${left}px`;
+    tip.style.top = `${top}px`;
+  };
+  const hide = () => {
+    tip.hidden = true;
+    wrap.querySelectorAll('.col.active').forEach(c => c.classList.remove('active'));
+  };
+
+  wrap.addEventListener('mouseover', e => {
+    const col = e.target.closest('.col');
+    if (col && pinned == null) show(+col.dataset.i, false);
+  });
+  wrap.addEventListener('mouseleave', () => { if (pinned == null) hide(); });
+  wrap.addEventListener('click', e => {
+    if (e.target.closest('.tip-close')) { pinned = null; return hide(); }
+    if (e.target.closest('.chart-tip')) return;
+    const col = e.target.closest('.col');
+    if (!col) { pinned = null; return hide(); }
+    const i = +col.dataset.i;
+    if (pinned === i) { pinned = null; return hide(); }
+    pinned = i;
+    show(i, true);
+  });
+  const outside = e => {
+    if (!wrap.isConnected) return document.removeEventListener('click', outside);
+    if (pinned != null && !wrap.contains(e.target)) { pinned = null; hide(); }
+  };
+  document.addEventListener('click', outside);
+  const esc_ = e => {
+    if (!wrap.isConnected) return document.removeEventListener('keydown', esc_);
+    if (e.key === 'Escape' && pinned != null) { pinned = null; hide(); }
+  };
+  document.addEventListener('keydown', esc_);
 }
 
 /* ---------------- 탭: 채널 분석 ---------------- */
@@ -655,6 +732,7 @@ function showChannelDetail(c) {
     ['쇼츠 비중', fmt.pct(c.shortsRatio), `평균 길이 ${fmt.dur(Math.round(c.avgDuration || 0))}`],
     ['총 조회수', fmt.compact(c.totalViews), `영상 ${fmt.num(c.videoCount)}개`],
   ]) + viewsChart(c.videos) + '<div class="vtable"></div>';
+  bindChartTips(body, c.videos);
   renderTable($('.vtable', body), videoCols(false), c.videos, c.sortKey ? { sortKey: c.sortKey } : {});
   $('#chDetail').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }

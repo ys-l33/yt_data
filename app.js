@@ -1560,13 +1560,60 @@ const LightDrift = (() => {
   return { start, stop };
 })();
 
+// 페이지 맨 아래 회전목마: 말 네 마리가 기둥을 중심으로 돌며(앞·뒤로 지나가며) 오르내리고, 지붕 줄무늬가 흐른다
+const Carousel = (() => {
+  const svg = document.querySelector('.carousel svg');
+  if (!svg) return { start() {}, stop() {} };
+  const NS = 'http://www.w3.org/2000/svg';
+  const back = svg.querySelector('.cr-back'), front = svg.querySelector('.cr-front'), stripes = svg.querySelector('.cr-stripes');
+  const horses = Array.from({ length: 4 }, (_, i) => {
+    const g = document.createElementNS(NS, 'g');
+    const pole = document.createElementNS(NS, 'line');
+    pole.setAttribute('stroke', '#0E3B23'); pole.setAttribute('stroke-width', '1.4');
+    const use = document.createElementNS(NS, 'use');
+    use.setAttribute('href', '#horse'); use.setAttribute('width', '34'); use.setAttribute('height', '26');
+    g.append(pole, use);
+    return { g, pole, use, phase: (i / 4) * Math.PI * 2 };
+  });
+  // 지붕 줄무늬: 초록 띠를 반복해 두고 옆으로 밀어 돌아가는 것처럼 보이게 한다
+  for (let i = -2; i < 12; i++) {
+    const r = document.createElementNS(NS, 'path');
+    r.setAttribute('d', `M${80 + i * 16 - 80},44 L80,10 L${80 + i * 16 - 72},44 Z`);
+    r.setAttribute('fill', '#2BAE66');
+    stripes.append(r);
+  }
+  let raf = 0, running = false;
+  function render(ms) {
+    const t = ms / 1000, spin = t * 0.9;
+    const placed = horses.map((h, i) => {
+      const a = spin + h.phase, depth = Math.cos(a);
+      const x = 80 + 50 * Math.sin(a), y = 74 + 4 * Math.sin(t * 2.4 + i * 1.6);
+      const sc = 0.78 + 0.22 * depth;
+      const dir = depth >= 0 ? 1 : -1; // 앞쪽은 오른쪽, 뒤쪽은 왼쪽으로 움직인다
+      h.use.setAttribute('transform', `translate(${x.toFixed(2)} ${y.toFixed(2)}) scale(${(sc * dir).toFixed(3)} ${sc.toFixed(3)}) translate(-17 -13)`);
+      h.pole.setAttribute('x1', x.toFixed(2)); h.pole.setAttribute('x2', x.toFixed(2));
+      h.pole.setAttribute('y1', '46'); h.pole.setAttribute('y2', (112 - 6 * (1 - depth)).toFixed(2));
+      h.g.style.opacity = (0.55 + 0.45 * Math.max(0, depth + 0.2)).toFixed(3);
+      return { h, depth };
+    }).sort((a, b) => a.depth - b.depth);
+    for (const { h, depth } of placed) (depth < 0 ? back : front).append(h.g);
+    stripes.setAttribute('transform', `translate(${(-(t * 10) % 16).toFixed(2)} 0)`);
+  }
+  function frame(ms) { render(ms); raf = requestAnimationFrame(frame); }
+  document.addEventListener('visibilitychange', () => (document.hidden ? stop() : motionOn() && start()));
+  function start() { if (!running && !document.hidden) { running = true; raf = requestAnimationFrame(frame); } }
+  function stop() { running = false; cancelAnimationFrame(raf); }
+  render(1800); // 멈춰 있어도 말들이 고르게 놓인 모습으로 그린다
+  return { start, stop };
+})();
+
 function setMotion(on) {
   document.body.classList.toggle('motion-off', !on);
   const btn = $('#motionToggle');
   btn.textContent = on ? '배경 움직임 끄기' : '배경 움직임 켜기';
   btn.setAttribute('aria-pressed', String(!on));
   store('yt_motion', on ? 'on' : 'off');
-  if (on) { SnowFx.start(); LightDrift.start(); } else { SnowFx.stop(); LightDrift.stop(); }
+  if (on) { SnowFx.start(); LightDrift.start(); Carousel.start(); } else { SnowFx.stop(); LightDrift.stop(); Carousel.stop(); }
 }
 
 function applySnow(level) {

@@ -1,0 +1,881 @@
+'use strict';
+
+const API = 'https://www.googleapis.com/youtube/v3/';
+const DAILY_QUOTA = 10000;
+const $ = (s, root = document) => root.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+/* ---------------- 저장소 · 키 · 할당량 ---------------- */
+
+function store(k, v) {
+  try {
+    if (v === undefined) return localStorage.getItem(k);
+    if (v === null) localStorage.removeItem(k); else localStorage.setItem(k, v);
+  } catch { return null; }
+}
+
+let memKey = '';
+const getKey = () => memKey || store('yt_api_key') || '';
+
+// YouTube 할당량은 태평양 시간 자정에 초기화된다
+const ptDate = () => new Date().toLocaleDateString('en-CA', { timeZone: 'America/Los_Angeles' });
+function quotaUsed() {
+  try {
+    const q = JSON.parse(store('yt_quota') || '{}');
+    return q.date === ptDate() ? q.used : 0;
+  } catch { return 0; }
+}
+function addQuota(n) {
+  store('yt_quota', JSON.stringify({ date: ptDate(), used: quotaUsed() + n }));
+  renderStatus();
+}
+
+function renderStatus() {
+  const ks = $('#keyStatus');
+  if (getKey()) { ks.textContent = 'API 키 연결됨'; ks.className = 'pill ok'; }
+  else { ks.textContent = 'API 키 없음'; ks.className = 'pill warn'; }
+  const used = quotaUsed();
+  const q = $('#quota');
+  q.textContent = `오늘 ${used.toLocaleString()} / ${DAILY_QUOTA.toLocaleString()}`;
+  q.className = 'pill' + (used > DAILY_QUOTA * 0.8 ? ' warn' : '');
+}
+
+/* ---------------- API 호출 ---------------- */
+
+const COST = { search: 100 };
+
+function explainError(status, err) {
+  const reason = err?.errors?.[0]?.reason || err?.details?.[0]?.reason || '';
+  const msg = err?.message || '';
+  if (/API key not valid|API_KEY_INVALID|keyInvalid/i.test(reason + msg)) return 'API 키가 올바르지 않습니다. 설정 탭에서 키를 확인해 주세요.';
+  if (/quotaExceeded|dailyLimitExceeded/i.test(reason)) return '오늘의 API 할당량을 모두 사용했습니다. 태평양 시간 자정(한국 시간 오후 4~5시)에 초기화됩니다.';
+  if (/accessNotConfigured|SERVICE_DISABLED/i.test(reason + msg)) return 'Google Cloud 프로젝트에서 YouTube Data API v3가 사용 설정되지 않았습니다.';
+  if (/ipRefererBlocked|API_KEY_HTTP_REFERRER_BLOCKED|referer/i.test(reason + msg)) return 'API 키의 웹사이트 제한 때문에 차단되었습니다. 키 제한에 이 사이트 주소를 추가해 주세요.';
+  if (/commentsDisabled/i.test(reason)) return '이 영상은 댓글이 사용 중지되어 있습니다.';
+  if (/videoNotFound/i.test(reason)) return '영상을 찾을 수 없습니다.';
+  if (/playlistNotFound/i.test(reason)) return '업로드 목록을 찾을 수 없습니다.';
+  return `API 오류 (${status}${reason ? ' · ' + reason : ''}) ${msg}`;
+}
+
+class ApiError extends Error {
+  constructor(message, reason) { super(message); this.reason = reason; }
+}
+
+async function yt(endpoint, params) {
+  const key = getKey();
+  if (!key) throw new ApiError('먼저 “API 키 설정” 탭에서 API 키를 입력해 주세요.', 'noKey');
+  const url = new URL(API + endpoint);
+  for (const [k, v] of Object.entries({ ...params, key })) {
+    if (v !== undefined && v !== null && v !== '') url.searchParams.set(k, v);
+  }
+  let res;
+  try { res = await fetch(url); }
+  catch { throw new ApiError('네트워크 오류로 YouTube API에 연결하지 못했습니다.', 'network'); }
+  addQuota(COST[endpoint] || 1);
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new ApiError(explainError(res.status, data.error), data.error?.errors?.[0]?.reason);
+  }
+  return data;
+}
+
+const chunk = (arr, n) => Array.from({ length: Math.ceil(arr.length / n) }, (_, i) => arr.slice(i * n, i * n + n));
+const unique = arr => [...new Set(arr)];
+
+/* ---------------- 입력 파싱 ---------------- */
+
+function parseVideoId(s) {
+  s = s.trim();
+  if (/^[\w-]{11}$/.test(s)) return s;
+  const m = s.match(/(?:v=|youtu\.be\/|\/shorts\/|\/live\/|\/embed\/|\/v\/)([\w-]{11})/);
+  return m ? m[1] : null;
+}
+
+function parseChannel(s) {
+  s = s.trim();
+  let m;
+  if ((m = s.match(/(UC[\w-]{22})/))) return { id: m[1] };
+  if ((m = s.match(/@([^\/?#\s]+)/))) return { handle: '@' + safeDecode(m[1]) };
+  if ((m = s.match(/\/user\/([^\/?#\s]+)/))) return { username: safeDecode(m[1]) };
+  if ((m = s.match(/\/c\/([^\/?#\s]+)/))) return { query: safeDecode(m[1]) };
+  return { query: s };
+}
+function safeDecode(s) { try { return decodeURIComponent(s); } catch { return s; } }
+
+/* ---------------- 데이터 정규화 ---------------- */
+
+function parseDuration(iso) {
+  const m = /P(?:(\d+)D)?T?(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/.exec(iso || '');
+  if (!m) return 0;
+  return (+m[1] || 0) * 86400 + (+m[2] || 0) * 3600 + (+m[3] || 0) * 60 + (+m[4] || 0);
+}
+
+const numOrNull = v => (v === undefined || v === null ? null : Number(v));
+
+function normVideo(v) {
+  const s = v.statistics || {}, sn = v.snippet || {}, cd = v.contentDetails || {};
+  const secs = parseDuration(cd.duration);
+  const published = new Date(sn.publishedAt);
+  const ageDays = Math.max(1, (Date.now() - published) / 864e5);
+  const views = Number(s.viewCount || 0);
+  const likes = numOrNull(s.likeCount);
+  const comments = numOrNull(s.commentCount);
+  const text = `${sn.title || ''} ${sn.description || ''}`;
+  // API는 쇼츠 여부를 주지 않으므로 길이와 #shorts 표기로 추정
+  const isShort = secs > 0 && (secs <= 60 || (secs <= 180 && /#shorts?\b/i.test(text)));
+  return {
+    id: v.id,
+    url: `https://www.youtube.com/watch?v=${v.id}`,
+    title: sn.title || '',
+    channelId: sn.channelId,
+    channelTitle: sn.channelTitle || '',
+    publishedAt: published,
+    thumb: sn.thumbnails?.default?.url || '',
+    tags: (sn.tags || []).join(', '),
+    categoryId: sn.categoryId,
+    live: sn.liveBroadcastContent || 'none',
+    duration: secs,
+    isShort,
+    format: isShort ? '쇼츠' : (cd.duration === 'P0D' ? '라이브' : '롱폼'),
+    views, likes, comments,
+    likeRate: views && likes != null ? likes / views : null,
+    commentRate: views && comments != null ? comments / views : null,
+    er: views ? ((likes || 0) + (comments || 0)) / views : null,
+    viewsPerDay: views / ageDays,
+    ageDays: Math.floor(ageDays),
+  };
+}
+
+function normChannel(c) {
+  const s = c.statistics || {}, sn = c.snippet || {};
+  const subs = s.hiddenSubscriberCount ? null : numOrNull(s.subscriberCount);
+  const totalViews = Number(s.viewCount || 0);
+  const videoCount = Number(s.videoCount || 0);
+  return {
+    id: c.id,
+    url: `https://www.youtube.com/channel/${c.id}`,
+    title: sn.title || '',
+    handle: sn.customUrl || '',
+    thumb: sn.thumbnails?.default?.url || '',
+    country: sn.country || '',
+    createdAt: sn.publishedAt ? new Date(sn.publishedAt) : null,
+    description: sn.description || '',
+    uploads: c.contentDetails?.relatedPlaylists?.uploads,
+    subs, totalViews, videoCount,
+    lifetimeAvgViews: videoCount ? totalViews / videoCount : null,
+  };
+}
+
+/* ---------------- 데이터 가져오기 ---------------- */
+
+async function fetchVideos(ids) {
+  const out = [];
+  for (const part of chunk(unique(ids), 50)) {
+    const d = await yt('videos', { part: 'snippet,statistics,contentDetails', id: part.join(','), maxResults: 50 });
+    out.push(...d.items.map(normVideo));
+  }
+  const byId = new Map(out.map(v => [v.id, v]));
+  return unique(ids).map(id => byId.get(id)).filter(Boolean);
+}
+
+async function fetchChannels(ids) {
+  const out = [];
+  for (const part of chunk(unique(ids), 50)) {
+    const d = await yt('channels', { part: 'snippet,statistics,contentDetails', id: part.join(','), maxResults: 50 });
+    out.push(...(d.items || []).map(normChannel));
+  }
+  const byId = new Map(out.map(c => [c.id, c]));
+  return unique(ids).map(id => byId.get(id)).filter(Boolean);
+}
+
+async function resolveChannelId(input) {
+  const p = parseChannel(input);
+  if (p.id) return p.id;
+  if (p.handle || p.username) {
+    const d = await yt('channels', { part: 'id', forHandle: p.handle, forUsername: p.username });
+    if (d.items?.length) return d.items[0].id;
+    if (!p.handle) return null;
+    p.query = p.handle;
+  }
+  const d = await yt('search', { part: 'snippet', type: 'channel', q: p.query, maxResults: 1 });
+  return d.items?.[0]?.snippet?.channelId || d.items?.[0]?.id?.channelId || null;
+}
+
+async function fetchRecentVideos(playlistId, n, type, onProgress) {
+  const out = [];
+  let pageToken, scanned = 0;
+  do {
+    let pl;
+    try {
+      pl = await yt('playlistItems', { part: 'contentDetails', playlistId, maxResults: 50, pageToken });
+    } catch (e) {
+      if (e.reason === 'playlistNotFound') break; // 업로드 영상이 없는 채널
+      throw e;
+    }
+    pageToken = pl.nextPageToken;
+    const ids = pl.items.map(i => i.contentDetails.videoId);
+    scanned += ids.length;
+    for (const v of await fetchVideos(ids)) {
+      if (v.live !== 'none') continue; // 예정/진행 중 라이브 제외
+      if (type === 'long' && v.isShort) continue;
+      if (type === 'short' && !v.isShort) continue;
+      out.push(v);
+      if (out.length >= n) break;
+    }
+    onProgress?.(out.length);
+  } while (out.length < n && pageToken && scanned < 500);
+  return out.sort((a, b) => b.publishedAt - a.publishedAt);
+}
+
+/* ---------------- 지표 계산 ---------------- */
+
+const sum = a => a.reduce((x, y) => x + y, 0);
+const mean = a => (a.length ? sum(a) / a.length : null);
+function median(a) {
+  if (!a.length) return null;
+  const s = [...a].sort((x, y) => x - y), m = s.length >> 1;
+  return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
+}
+function stdev(a) {
+  if (a.length < 2) return null;
+  const m = mean(a);
+  return Math.sqrt(sum(a.map(x => (x - m) ** 2)) / (a.length - 1));
+}
+
+function channelMetrics(ch, vids) {
+  const views = vids.map(v => v.views);
+  const likes = vids.map(v => v.likes || 0);
+  const comments = vids.map(v => v.comments || 0);
+  const totalV = sum(views);
+  const avgViews = mean(views);
+  const med = median(views);
+  const oldest = vids.length ? Math.min(...vids.map(v => v.publishedAt)) : null;
+  const spanWeeks = oldest ? Math.max(1, (Date.now() - oldest) / (7 * 864e5)) : null;
+  return {
+    ...ch,
+    videos: vids,
+    sample: vids.length,
+    avgViews,
+    medianViews: med,
+    maxViews: views.length ? Math.max(...views) : null,
+    avgLikes: mean(likes),
+    avgComments: mean(comments),
+    er: totalV ? (sum(likes) + sum(comments)) / totalV : null,
+    likeRate: totalV ? sum(likes) / totalV : null,
+    commentRate: totalV ? sum(comments) / totalV : null,
+    reach: ch.subs && avgViews != null ? avgViews / ch.subs : null,
+    medianReach: ch.subs && med != null ? med / ch.subs : null,
+    cv: avgViews ? stdev(views) / avgViews : null,
+    hits: med != null ? views.filter(v => v >= med * 2).length : null,
+    perWeek: spanWeeks ? vids.length / spanWeeks : null,
+    shortsRatio: vids.length ? vids.filter(v => v.isShort).length / vids.length : null,
+    avgViewsPerDay: mean(vids.map(v => v.viewsPerDay)),
+    avgDuration: mean(vids.map(v => v.duration)),
+    lastUpload: vids.length ? new Date(Math.max(...vids.map(v => v.publishedAt))) : null,
+  };
+}
+
+/* ---------------- 포맷 ---------------- */
+
+const fmt = {
+  num: v => (v == null || isNaN(v) ? '-' : Math.round(v).toLocaleString('ko-KR')),
+  dec: v => (v == null || isNaN(v) ? '-' : v.toLocaleString('ko-KR', { maximumFractionDigits: 1 })),
+  pct: v => (v == null || isNaN(v) ? '-' : (v * 100).toFixed(2) + '%'),
+  date: v => (v ? new Date(v).toLocaleDateString('sv-SE') : '-'),
+  dur: s => {
+    if (!s) return '-';
+    const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60;
+    return (h ? h + ':' + String(m).padStart(2, '0') : m) + ':' + String(sec).padStart(2, '0');
+  },
+  compact: v => {
+    if (v == null || isNaN(v)) return '-';
+    const a = Math.abs(v);
+    const t = x => (x >= 100 ? x.toFixed(0) : x.toFixed(1)).replace(/\.0$/, '');
+    if (a >= 1e8) return t(v / 1e8) + '억';
+    if (a >= 1e4) return t(v / 1e4) + '만';
+    if (a >= 1e3) return t(v / 1e3) + '천';
+    return String(Math.round(v));
+  },
+};
+
+// CSV에는 서식 없는 원값을 넣는다
+const csvVal = {
+  num: v => (v == null || isNaN(v) ? '' : Math.round(v)),
+  dec: v => (v == null || isNaN(v) ? '' : Math.round(v * 100) / 100),
+  pct: v => (v == null || isNaN(v) ? '' : (v * 100).toFixed(3)),
+  date: v => (v ? new Date(v).toLocaleDateString('sv-SE') : ''),
+  dur: v => v || '',
+  text: v => v ?? '',
+};
+
+/* ---------------- 테이블 · CSV ---------------- */
+
+// cols: { key, label, type: 'num'|'dec'|'pct'|'date'|'dur'|'text', html?(row), get?(row) }
+function renderTable(el, cols, rows, { sortKey = null, dir = -1, onRowClick, rowClass } = {}) {
+  const get = (c, r) => (c.get ? c.get(r) : r[c.key]);
+  const indexed = rows.map((r, i) => [r, i]);
+  const draw = () => {
+    let list = indexed;
+    if (sortKey) {
+      const c = cols.find(x => x.key === sortKey);
+      list = [...indexed].sort(([a], [b]) => {
+        const x = get(c, a), y = get(c, b);
+        if (x == null || x === '') return 1;
+        if (y == null || y === '') return -1;
+        return (typeof x === 'string' ? x.localeCompare(y, 'ko') : x - y) * dir;
+      });
+    }
+    const head = cols.map(c => {
+      const isNum = c.type && c.type !== 'text';
+      const arrow = sortKey === c.key ? (dir > 0 ? ' ▲' : ' ▼') : '';
+      return `<th data-k="${c.key}" class="${isNum ? 'num' : ''} ${sortKey === c.key ? 'sorted' : ''}">${esc(c.label)}${arrow}</th>`;
+    }).join('');
+    const body = list.map(([r, i]) => {
+      const cls = [onRowClick ? 'clickable' : '', rowClass?.(r) || ''].join(' ');
+      const tds = cols.map(c => {
+        const isNum = c.type && c.type !== 'text';
+        const content = c.html ? c.html(r) : esc(fmt[c.type]?.(get(c, r)) ?? get(c, r));
+        return `<td class="${isNum ? 'num' : ''} ${c.cls || ''}">${content}</td>`;
+      }).join('');
+      return `<tr data-i="${i}" class="${cls}">${tds}</tr>`;
+    }).join('');
+    el.innerHTML = `<div class="tablewrap"><table class="data"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div>`;
+  };
+  el.onclick = e => {
+    const th = e.target.closest('th[data-k]');
+    if (th) {
+      const k = th.dataset.k;
+      if (sortKey === k) dir = -dir; else { sortKey = k; dir = cols.find(c => c.key === k).type === 'text' ? 1 : -1; }
+      draw();
+      return;
+    }
+    const tr = e.target.closest('tr[data-i]');
+    if (tr && onRowClick && !e.target.closest('a')) onRowClick(rows[+tr.dataset.i], tr);
+  };
+  draw();
+}
+
+function downloadCSV(filename, cols, rows) {
+  const cell = v => {
+    if (v == null) return '';
+    let s = String(v);
+    // 엑셀 수식 주입 방지
+    // (@핸들 같은 작성자명은 그대로 두고, 함수처럼 보이는 @만 막는다)
+    if (typeof v === 'string' && (/^[=+\-\t\r]/.test(s) || /^@.*\(/.test(s))) s = "'" + s;
+    return /[",\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+  };
+  const header = cols.map(c => cell(c.type === 'pct' ? `${c.label}(%)` : c.label));
+  const lines = rows.map(r => cols.map(c => {
+    const raw = c.csv ? c.csv(r) : (c.get ? c.get(r) : r[c.key]);
+    return cell(c.csv ? raw : (csvVal[c.type || 'text'] || csvVal.text)(raw));
+  }).join(','));
+  // BOM을 붙여 엑셀에서 한글이 깨지지 않게 한다
+  const blob = new Blob(['﻿' + [header.join(','), ...lines].join('\r\n')], { type: 'text/csv;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `${filename}_${new Date().toLocaleDateString('sv-SE')}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+
+function block(el, { title, sub = '', actions = [] }) {
+  el.innerHTML = `
+    <div class="card">
+      <div class="block-head">
+        <div><h3>${esc(title)}</h3>${sub ? `<p class="muted">${sub}</p>` : ''}</div>
+        <div class="block-actions">${actions.map((a, i) => `<button class="ghost small" data-a="${i}">${esc(a.label)}</button>`).join('')}</div>
+      </div>
+      <div class="block-body"></div>
+    </div>`;
+  el.querySelectorAll('[data-a]').forEach(b => { b.onclick = () => actions[+b.dataset.a].run(); });
+  return $('.block-body', el);
+}
+
+const statCards = items => `<div class="stats">${items.map(([label, value, sub]) => `
+  <div class="stat"><div class="label">${esc(label)}</div><div class="value">${esc(value)}</div>${sub ? `<div class="sub">${esc(sub)}</div>` : ''}</div>`).join('')}</div>`;
+
+/* ---------------- 공통 컬럼 ---------------- */
+
+const titleCol = { key: 'title', label: '제목', type: 'text', cls: 'title', html: r => `<a href="${esc(r.url)}" target="_blank" rel="noopener">${esc(r.title)}</a>` };
+const channelCol = { key: 'title', label: '채널', type: 'text', html: r => `<div class="chcell">${r.thumb ? `<img src="${esc(r.thumb)}" alt="" loading="lazy">` : ''}<div><a href="${esc(r.url)}" target="_blank" rel="noopener">${esc(r.title)}</a><div class="muted">${esc(r.handle)}</div></div></div>` };
+const formatCol = { key: 'format', label: '형식', type: 'text', html: r => `<span class="tag ${r.isShort ? 'short' : ''}">${esc(r.format)}</span>` };
+
+const videoCols = (withChannel) => [
+  titleCol,
+  ...(withChannel ? [{ key: 'channelTitle', label: '채널', type: 'text' }, { key: 'subs', label: '구독자', type: 'num' }] : []),
+  { key: 'publishedAt', label: '게시일', type: 'date' },
+  formatCol,
+  { key: 'duration', label: '길이', type: 'dur' },
+  { key: 'views', label: '조회수', type: 'num' },
+  { key: 'likes', label: '좋아요', type: 'num' },
+  { key: 'comments', label: '댓글', type: 'num' },
+  { key: 'er', label: '참여율', type: 'pct' },
+  { key: 'likeRate', label: '좋아요율', type: 'pct' },
+  { key: 'viewsPerDay', label: '일평균 조회수', type: 'num' },
+  ...(withChannel ? [{ key: 'reach', label: '구독자 대비 조회율', type: 'pct' }] : []),
+];
+const videoCsvExtra = [
+  { key: 'id', label: '영상ID', type: 'text' },
+  { key: 'url', label: 'URL', type: 'text' },
+  { key: 'commentRate', label: '댓글율', type: 'pct' },
+  { key: 'ageDays', label: '게시 후 일수', type: 'num' },
+  { key: 'tags', label: '태그', type: 'text' },
+];
+
+/* ---------------- 진행 상태 ---------------- */
+
+function setStatus(sel, msg, kind = '') {
+  const el = $(sel);
+  el.className = 'status-line ' + kind;
+  el.innerHTML = kind === 'busy' ? `<span class="spinner"></span>${esc(msg)}` : esc(msg);
+}
+
+async function run(btn, statusSel, fn) {
+  btn.disabled = true;
+  const before = quotaUsed();
+  try {
+    await fn();
+    const used = quotaUsed() - before;
+    if ($(statusSel).classList.contains('busy')) setStatus(statusSel, `완료 · 할당량 ${used.toLocaleString()} 사용`, 'ok');
+  } catch (e) {
+    console.error(e);
+    setStatus(statusSel, e.message || String(e), 'error');
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+function toast(msg) {
+  const t = $('#toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toast.timer);
+  toast.timer = setTimeout(() => t.classList.remove('show'), 2400);
+}
+
+/* ---------------- 차트 ---------------- */
+
+function viewsChart(vids) {
+  const data = [...vids].sort((a, b) => a.publishedAt - b.publishedAt);
+  if (!data.length) return '';
+  const W = 900, H = 240, L = 54, R = 10, T = 12, B = 26;
+  const max = Math.max(...data.map(v => v.views), 1);
+  const bw = (W - L - R) / data.length;
+  const y = v => T + (H - T - B) * (1 - v / max);
+  const avg = mean(data.map(v => v.views)), med = median(data.map(v => v.views));
+  let svg = '';
+  for (let i = 0; i <= 4; i++) {
+    const v = (max * i) / 4, yy = y(v);
+    svg += `<line class="grid-line" x1="${L}" x2="${W - R}" y1="${yy}" y2="${yy}"/><text class="axis" x="${L - 6}" y="${yy + 4}" text-anchor="end">${fmt.compact(v)}</text>`;
+  }
+  data.forEach((v, i) => {
+    const x = L + i * bw + bw * 0.15, yy = y(v.views);
+    svg += `<rect class="bar ${v.isShort ? 'short' : ''}" x="${x}" y="${yy}" width="${Math.max(1, bw * 0.7)}" height="${H - B - yy}" rx="2"><title>${esc(v.title)}\n${fmt.date(v.publishedAt)} · 조회수 ${fmt.num(v.views)} · 참여율 ${fmt.pct(v.er)}</title></rect>`;
+  });
+  svg += `<line class="avg" x1="${L}" x2="${W - R}" y1="${y(avg)}" y2="${y(avg)}"/>`;
+  svg += `<line class="med" x1="${L}" x2="${W - R}" y1="${y(med)}" y2="${y(med)}"/>`;
+  svg += `<text class="axis" x="${L}" y="${H - 6}">${fmt.date(data[0].publishedAt)}</text>`;
+  svg += `<text class="axis" x="${W - R}" y="${H - 6}" text-anchor="end">${fmt.date(data[data.length - 1].publishedAt)}</text>`;
+  return `<div class="chart-wrap"><svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="영상별 조회수">${svg}</svg>
+    <div class="legend"><span><i style="background:var(--bar)"></i>롱폼</span><span><i style="background:var(--bar-short)"></i>쇼츠</span>
+    <span><i class="line" style="border-color:var(--accent)"></i>평균 ${fmt.compact(avg)}</span><span><i class="line" style="border-color:var(--muted)"></i>중앙값 ${fmt.compact(med)}</span>
+    <span>막대에 마우스를 올리면 영상 정보가 보입니다</span></div></div>`;
+}
+
+/* ---------------- 탭: 채널 분석 ---------------- */
+
+let channelResults = [];
+
+const channelCols = [
+  channelCol,
+  { key: 'subs', label: '구독자', type: 'num' },
+  { key: 'totalViews', label: '총 조회수', type: 'num' },
+  { key: 'videoCount', label: '총 영상', type: 'num' },
+  { key: 'sample', label: '분석 영상', type: 'num' },
+  { key: 'avgViews', label: '평균 조회수', type: 'num' },
+  { key: 'medianViews', label: '중앙값 조회수', type: 'num' },
+  { key: 'avgLikes', label: '평균 좋아요', type: 'num' },
+  { key: 'avgComments', label: '평균 댓글', type: 'num' },
+  { key: 'er', label: '참여율', type: 'pct' },
+  { key: 'reach', label: '구독자 대비 조회율', type: 'pct' },
+  { key: 'perWeek', label: '주간 업로드', type: 'dec' },
+  { key: 'shortsRatio', label: '쇼츠 비중', type: 'pct' },
+  { key: 'lastUpload', label: '최근 업로드', type: 'date' },
+];
+const channelCsvCols = [
+  { key: 'title', label: '채널명', type: 'text' },
+  { key: 'handle', label: '핸들', type: 'text' },
+  { key: 'id', label: '채널ID', type: 'text' },
+  { key: 'url', label: 'URL', type: 'text' },
+  { key: 'country', label: '국가', type: 'text' },
+  { key: 'createdAt', label: '개설일', type: 'date' },
+  ...channelCols.slice(1),
+  { key: 'maxViews', label: '최고 조회수', type: 'num' },
+  { key: 'medianReach', label: '구독자 대비 조회율(중앙값)', type: 'pct' },
+  { key: 'likeRate', label: '좋아요율', type: 'pct' },
+  { key: 'commentRate', label: '댓글율', type: 'pct' },
+  { key: 'cv', label: '조회수 편차(CV)', type: 'dec', csv: r => (r.cv == null ? '' : r.cv.toFixed(3)) },
+  { key: 'hits', label: '히트 영상 수', type: 'num' },
+  { key: 'avgViewsPerDay', label: '영상당 일평균 조회수', type: 'num' },
+  { key: 'avgDuration', label: '평균 길이(초)', type: 'num' },
+  { key: 'lifetimeAvgViews', label: '누적 영상당 평균 조회수', type: 'num' },
+];
+
+async function runChannels() {
+  const lines = unique($('#chInput').value.split('\n').map(s => s.trim()).filter(Boolean));
+  if (!lines.length) return toast('분석할 채널을 입력해 주세요.');
+  const n = +$('#chN').value, type = $('#chType').value;
+
+  const ids = [], failed = [];
+  for (const [i, line] of lines.entries()) {
+    setStatus('#chStatus', `채널 확인 중… (${i + 1}/${lines.length}) ${line}`, 'busy');
+    const id = await resolveChannelId(line);
+    if (id) ids.push(id); else failed.push(line);
+  }
+  if (!ids.length) throw new Error('채널을 찾지 못했습니다: ' + failed.join(', '));
+
+  const channels = await fetchChannels(ids);
+  const results = [];
+  for (const [i, ch] of channels.entries()) {
+    const label = `${ch.title} 영상 불러오는 중… (${i + 1}/${channels.length})`;
+    setStatus('#chStatus', label, 'busy');
+    const vids = ch.uploads ? await fetchRecentVideos(ch.uploads, n, type, k => setStatus('#chStatus', `${label} ${k}개`, 'busy')) : [];
+    results.push(channelMetrics(ch, vids));
+  }
+  channelResults = results;
+
+  const typeLabel = { all: '전체', long: '롱폼', short: '쇼츠' }[type];
+  const body = block($('#chResult'), {
+    title: `채널 비교 (${results.length}개)`,
+    sub: `최근 ${typeLabel} 영상 ${n}개 기준 · 열 제목을 누르면 정렬, 행을 누르면 영상별 상세${failed.length ? ` · 찾지 못한 채널: ${esc(failed.join(', '))}` : ''}`,
+    actions: [
+      { label: '채널 요약 CSV', run: () => downloadCSV('채널비교', channelCsvCols, channelResults) },
+      { label: '전체 영상 CSV', run: () => downloadCSV('채널별_영상', [{ key: 'channelTitle', label: '채널', type: 'text' }, ...videoCols(false), ...videoCsvExtra], channelResults.flatMap(c => c.videos)) },
+    ],
+  });
+  renderTable(body, channelCols, results, {
+    onRowClick: (r, tr) => {
+      tr.parentElement.querySelectorAll('tr.selected').forEach(x => x.classList.remove('selected'));
+      tr.classList.add('selected');
+      showChannelDetail(r);
+    },
+  });
+  $('#chDetail').innerHTML = '';
+  if (results.length === 1) showChannelDetail(results[0]);
+}
+
+function showChannelDetail(c) {
+  const body = block($('#chDetail'), {
+    title: c.title,
+    sub: `${esc(c.handle)} · 개설 ${fmt.date(c.createdAt)}${c.country ? ' · ' + esc(c.country) : ''} · 분석 영상 ${c.sample}개`,
+    actions: [{ label: '이 채널 영상 CSV', run: () => downloadCSV(`${c.title}_영상`, [...videoCols(false), ...videoCsvExtra], c.videos) }],
+  });
+  body.innerHTML = statCards([
+    ['구독자', fmt.compact(c.subs), c.subs == null ? '비공개' : fmt.num(c.subs)],
+    ['평균 조회수', fmt.compact(c.avgViews), `중앙값 ${fmt.compact(c.medianViews)}`],
+    ['구독자 대비 조회율', fmt.pct(c.reach), `중앙값 기준 ${fmt.pct(c.medianReach)}`],
+    ['참여율', fmt.pct(c.er), `좋아요 ${fmt.pct(c.likeRate)} · 댓글 ${fmt.pct(c.commentRate)}`],
+    ['평균 좋아요 / 댓글', `${fmt.compact(c.avgLikes)} / ${fmt.compact(c.avgComments)}`],
+    ['주간 업로드', fmt.dec(c.perWeek) + '개', `최근 ${fmt.date(c.lastUpload)}`],
+    ['히트 영상', `${c.hits ?? '-'}개`, '중앙값의 2배 이상'],
+    ['조회수 편차(CV)', c.cv == null ? '-' : c.cv.toFixed(2), '낮을수록 성과가 안정적'],
+    ['쇼츠 비중', fmt.pct(c.shortsRatio), `평균 길이 ${fmt.dur(Math.round(c.avgDuration || 0))}`],
+    ['총 조회수', fmt.compact(c.totalViews), `영상 ${fmt.num(c.videoCount)}개`],
+  ]) + viewsChart(c.videos) + '<div class="vtable"></div>';
+  renderTable($('.vtable', body), videoCols(false), c.videos);
+  $('#chDetail').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+/* ---------------- 탭: 영상 분석 ---------------- */
+
+let videoResults = [];
+
+async function attachChannelStats(vids) {
+  const chs = await fetchChannels(unique(vids.map(v => v.channelId)));
+  const byId = new Map(chs.map(c => [c.id, c]));
+  for (const v of vids) {
+    v.subs = byId.get(v.channelId)?.subs ?? null;
+    v.reach = v.subs ? v.views / v.subs : null;
+  }
+  return chs;
+}
+
+async function runVideos() {
+  const lines = $('#vInput').value.split('\n').map(s => s.trim()).filter(Boolean);
+  const ids = unique(lines.map(parseVideoId).filter(Boolean));
+  const bad = lines.filter(l => !parseVideoId(l));
+  if (!ids.length) return toast('영상 URL이나 ID를 입력해 주세요.');
+
+  setStatus('#vStatus', `영상 ${ids.length}개 조회 중…`, 'busy');
+  const vids = await fetchVideos(ids);
+  setStatus('#vStatus', '채널 구독자 수 조회 중…', 'busy');
+  await attachChannelStats(vids);
+  videoResults = vids;
+
+  const missing = ids.length - vids.length;
+  const tv = sum(vids.map(v => v.views)), tl = sum(vids.map(v => v.likes || 0)), tc = sum(vids.map(v => v.comments || 0));
+  const cols = videoCols(true);
+  const body = block($('#vResult'), {
+    title: `영상 ${vids.length}개`,
+    sub: [missing ? `비공개·삭제 등으로 ${missing}개를 불러오지 못했습니다` : '', bad.length ? `인식하지 못한 줄 ${bad.length}개` : ''].filter(Boolean).join(' · '),
+    actions: [{ label: 'CSV 다운로드', run: () => downloadCSV('영상분석', [...cols, ...videoCsvExtra], videoResults) }],
+  });
+  body.innerHTML = statCards([
+    ['총 조회수', fmt.compact(tv), fmt.num(tv)],
+    ['총 좋아요', fmt.compact(tl), fmt.num(tl)],
+    ['총 댓글', fmt.compact(tc), fmt.num(tc)],
+    ['평균 조회수', fmt.compact(mean(vids.map(v => v.views))), `중앙값 ${fmt.compact(median(vids.map(v => v.views)))}`],
+    ['전체 참여율', fmt.pct(tv ? (tl + tc) / tv : null), '(좋아요+댓글) ÷ 조회수'],
+    ['평균 구독자 대비 조회율', fmt.pct(mean(vids.filter(v => v.reach != null).map(v => v.reach)))],
+  ]) + '<div class="vtable"></div>';
+  renderTable($('.vtable', body), cols, vids);
+}
+
+/* ---------------- 탭: 키워드 검색 ---------------- */
+
+let searchResults = [];
+
+function updateSearchCost() {
+  const count = +$('#sCount').value;
+  const pages = Math.ceil(count / 50);
+  const extra = Math.ceil(count / 50) * ($('#sType').value === 'video' ? 2 : 1);
+  $('#sCost').textContent = `예상 할당량: 약 ${(pages * 100 + extra).toLocaleString()} 유닛 (검색 1회 = 100)`;
+  $('#sDuration').disabled = $('#sType').value !== 'video';
+}
+
+async function runSearch() {
+  const q = $('#sQuery').value.trim();
+  if (!q) return toast('검색어를 입력해 주세요.');
+  const type = $('#sType').value, count = +$('#sCount').value;
+  const days = +$('#sPeriod').value;
+  const params = {
+    part: 'snippet', type, q,
+    order: $('#sOrder').value,
+    regionCode: $('#sRegion').value,
+    relevanceLanguage: $('#sRegion').value === 'KR' ? 'ko' : undefined,
+    publishedAfter: days ? new Date(Date.now() - days * 864e5).toISOString() : undefined,
+    videoDuration: type === 'video' ? $('#sDuration').value : undefined,
+  };
+
+  const ids = [];
+  let pageToken;
+  do {
+    setStatus('#sStatus', `검색 중… ${ids.length}건`, 'busy');
+    const d = await yt('search', { ...params, maxResults: Math.min(50, count - ids.length), pageToken });
+    ids.push(...d.items.map(i => (type === 'video' ? i.id.videoId : i.id.channelId)).filter(Boolean));
+    pageToken = d.nextPageToken;
+  } while (pageToken && ids.length < count);
+
+  if (!ids.length) { setStatus('#sStatus', '검색 결과가 없습니다.', ''); $('#sResult').innerHTML = ''; return; }
+  setStatus('#sStatus', '상세 지표 불러오는 중…', 'busy');
+
+  if (type === 'video') {
+    const vids = await fetchVideos(ids);
+    await attachChannelStats(vids);
+    searchResults = vids;
+    const cols = videoCols(true);
+    const body = block($('#sResult'), {
+      title: `“${q}” 영상 검색 결과 ${vids.length}건`,
+      sub: '구독자 대비 조회율이 높은 영상은 알고리즘 추천을 받은 바이럴 콘텐츠일 가능성이 큽니다.',
+      actions: [
+        { label: '채널들을 채널 분석으로 보내기', run: () => sendToChannels(vids.map(v => v.channelId)) },
+        { label: 'CSV 다운로드', run: () => downloadCSV(`검색_${q}`, [...cols, ...videoCsvExtra], searchResults) },
+      ],
+    });
+    renderTable(body, cols, vids);
+  } else {
+    const chs = await fetchChannels(ids);
+    searchResults = chs;
+    const cols = [
+      channelCol,
+      { key: 'subs', label: '구독자', type: 'num' },
+      { key: 'totalViews', label: '총 조회수', type: 'num' },
+      { key: 'videoCount', label: '총 영상', type: 'num' },
+      { key: 'lifetimeAvgViews', label: '영상당 평균 조회수(누적)', type: 'num' },
+      { key: 'createdAt', label: '개설일', type: 'date' },
+      { key: 'country', label: '국가', type: 'text' },
+    ];
+    const body = block($('#sResult'), {
+      title: `“${q}” 채널 검색 결과 ${chs.length}건`,
+      sub: '정확한 최근 성과는 “채널 분석으로 보내기” 후 확인하세요.',
+      actions: [
+        { label: '채널 분석으로 보내기', run: () => sendToChannels(chs.map(c => c.id)) },
+        { label: 'CSV 다운로드', run: () => downloadCSV(`채널검색_${q}`, [{ key: 'title', label: '채널명', type: 'text' }, { key: 'handle', label: '핸들', type: 'text' }, { key: 'id', label: '채널ID', type: 'text' }, { key: 'url', label: 'URL', type: 'text' }, ...cols.slice(1)], searchResults) },
+      ],
+    });
+    renderTable(body, cols, chs);
+  }
+}
+
+function sendToChannels(ids) {
+  $('#chInput').value = unique(ids).join('\n');
+  switchTab('channels');
+  toast(`채널 ${unique(ids).length}개를 입력했습니다. “분석하기”를 눌러 주세요.`);
+}
+
+/* ---------------- 탭: 댓글 수집 ---------------- */
+
+let commentData = { video: null, comments: [] };
+
+const STOPWORDS = new Set(('그리고 그래서 그런데 근데 하지만 그냥 진짜 정말 너무 완전 이거 저거 그거 이건 저건 그건 이게 그게 저게 여기 거기 저는 제가 나는 내가 우리 이런 저런 그런 있는 없는 하는 해서 하고 같아요 같은 있어요 합니다 입니다 ' +
+  'the and to is of a in it this that for you i my me so are was be on with just not but have its your').split(' '));
+
+function topWords(texts, limit = 40) {
+  const freq = new Map();
+  for (const t of texts) {
+    const seen = new Set();
+    for (const w of t.toLowerCase().split(/[^\p{L}\p{N}]+/u)) {
+      if (w.length < 2 || STOPWORDS.has(w) || /^[ㅋㅎㅠㅜ]+$/.test(w) || /^\d+$/.test(w) || seen.has(w)) continue;
+      seen.add(w);
+      freq.set(w, (freq.get(w) || 0) + 1);
+    }
+  }
+  return [...freq].sort((a, b) => b[1] - a[1]).slice(0, limit);
+}
+
+async function runComments() {
+  const id = parseVideoId($('#cVideo').value);
+  if (!id) return toast('영상 URL이나 ID를 입력해 주세요.');
+  const max = +$('#cMax').value, order = $('#cOrder').value;
+
+  setStatus('#cStatus', '영상 정보 확인 중…', 'busy');
+  const [video] = await fetchVideos([id]);
+  if (!video) throw new Error('영상을 찾을 수 없습니다.');
+
+  const comments = [];
+  let pageToken;
+  do {
+    setStatus('#cStatus', `댓글 수집 중… ${comments.length.toLocaleString()}개`, 'busy');
+    const d = await yt('commentThreads', { part: 'snippet', videoId: id, maxResults: 100, order, textFormat: 'plainText', pageToken });
+    for (const it of d.items) {
+      const s = it.snippet.topLevelComment.snippet;
+      comments.push({
+        id: it.id,
+        author: s.authorDisplayName,
+        authorUrl: s.authorChannelUrl,
+        text: s.textOriginal ?? s.textDisplay ?? '',
+        likes: s.likeCount || 0,
+        replies: it.snippet.totalReplyCount || 0,
+        publishedAt: new Date(s.publishedAt),
+        edited: s.updatedAt !== s.publishedAt,
+      });
+    }
+    pageToken = d.nextPageToken;
+  } while (pageToken && comments.length < max);
+
+  commentData = { video, comments: comments.slice(0, max) };
+  renderComments();
+}
+
+function renderComments() {
+  const { video, comments } = commentData;
+  if (!video) return;
+  const keywords = $('#cKeywords').value.split(',').map(s => s.trim()).filter(Boolean);
+  const lower = comments.map(c => c.text.toLowerCase());
+  const mentions = keywords.map(k => {
+    const kl = k.toLowerCase();
+    const n = lower.filter(t => t.includes(kl)).length;
+    return [k, n];
+  });
+
+  const cols = [
+    { key: 'author', label: '작성자', type: 'text', html: r => r.authorUrl ? `<a href="${esc(r.authorUrl)}" target="_blank" rel="noopener">${esc(r.author)}</a>` : esc(r.author) },
+    { key: 'text', label: '댓글', type: 'text', cls: 'text' },
+    { key: 'likes', label: '좋아요', type: 'num' },
+    { key: 'replies', label: '답글', type: 'num' },
+    { key: 'publishedAt', label: '작성일', type: 'date' },
+  ];
+  const csvCols = [
+    ...cols.slice(0, 2),
+    ...keywords.map(k => ({ key: 'kw_' + k, label: `언급:${k}`, type: 'text', csv: r => (r.text.toLowerCase().includes(k.toLowerCase()) ? 1 : 0) })),
+    ...cols.slice(2),
+    { key: 'authorUrl', label: '작성자 채널', type: 'text' },
+    { key: 'id', label: '댓글ID', type: 'text' },
+  ];
+
+  const body = block($('#cResult'), {
+    title: video.title,
+    sub: `${esc(video.channelTitle)} · 조회수 ${fmt.num(video.views)} · 전체 댓글 ${fmt.num(video.comments)}개 중 ${fmt.num(comments.length)}개 수집`,
+    actions: [{ label: 'CSV 다운로드', run: () => downloadCSV(`댓글_${video.id}`, csvCols, commentData.comments) }],
+  });
+
+  const likes = comments.map(c => c.likes);
+  const words = topWords(comments.map(c => c.text));
+  body.innerHTML = statCards([
+    ['수집 댓글', fmt.num(comments.length)],
+    ['댓글 좋아요 합계', fmt.compact(sum(likes)), `평균 ${fmt.dec(mean(likes))}`],
+    ['답글 합계', fmt.num(sum(comments.map(c => c.replies)))],
+    ['답글 달린 댓글', fmt.pct(comments.length ? comments.filter(c => c.replies > 0).length / comments.length : null), '대화가 일어나는 비율'],
+    ['영상 댓글율', fmt.pct(video.commentRate), '댓글 ÷ 조회수'],
+  ]) + `
+    <div class="two-col">
+      <div><h4>자주 쓰인 단어 <span class="muted">(댓글 수 기준)</span></h4>
+        <div class="chips">${words.map(([w, n]) => `<span class="chip">${esc(w)}<b>${n}</b></span>`).join('') || '<span class="muted">-</span>'}</div></div>
+      <div><h4>언급 키워드</h4>
+        ${keywords.length ? `<div class="chips">${mentions.map(([k, n]) => `<span class="chip">${esc(k)}<b>${n}개 · ${fmt.pct(comments.length ? n / comments.length : 0)}</b></span>`).join('')}</div>`
+          : '<span class="muted">위 “언급 키워드” 칸에 브랜드명·제품명을 입력하면 언급 댓글 수와 비율을 보여줍니다. 입력 후 다시 수집할 필요는 없습니다.</span>'}</div>
+    </div>
+    <div class="ctable"></div>`;
+  renderTable($('.ctable', body), cols, comments);
+}
+
+/* ---------------- 탭: 설정 ---------------- */
+
+function initSettings() {
+  const input = $('#keyInput');
+  input.value = getKey();
+  $('#keyRemember').checked = store('yt_api_key') !== null || !memKey;
+  $('#keyShow').onclick = () => {
+    input.type = input.type === 'password' ? 'text' : 'password';
+    $('#keyShow').textContent = input.type === 'password' ? '보기' : '숨기기';
+  };
+  $('#keySave').onclick = () => {
+    const k = input.value.trim();
+    if (!k) return setStatus('#keyMsg', 'API 키를 입력해 주세요.', 'error');
+    memKey = k;
+    store('yt_api_key', $('#keyRemember').checked ? k : null);
+    renderStatus();
+    setStatus('#keyMsg', '저장했습니다. “연결 테스트”로 확인해 보세요.', 'ok');
+  };
+  $('#keyTest').onclick = () => run($('#keyTest'), '#keyMsg', async () => {
+    if (input.value.trim() && input.value.trim() !== getKey()) $('#keySave').onclick();
+    setStatus('#keyMsg', '테스트 중…', 'busy');
+    await yt('videos', { part: 'id', id: 'dQw4w9WgXcQ' });
+    setStatus('#keyMsg', '연결 성공! 이제 다른 탭에서 데이터를 추출할 수 있습니다.', 'ok');
+  });
+  $('#keyDelete').onclick = () => {
+    memKey = '';
+    store('yt_api_key', null);
+    input.value = '';
+    renderStatus();
+    setStatus('#keyMsg', 'API 키를 삭제했습니다.', '');
+  };
+}
+
+/* ---------------- 탭 전환 · 초기화 ---------------- */
+
+function switchTab(name) {
+  document.querySelectorAll('.tabs button').forEach(b => b.classList.toggle('active', b.dataset.tab === name));
+  document.querySelectorAll('.panel').forEach(p => p.classList.toggle('active', p.id === 'tab-' + name));
+  store('yt_tab', name);
+}
+
+function init() {
+  document.querySelectorAll('.tabs button').forEach(b => { b.onclick = () => switchTab(b.dataset.tab); });
+  $('#chRun').onclick = () => run($('#chRun'), '#chStatus', runChannels);
+  $('#vRun').onclick = () => run($('#vRun'), '#vStatus', runVideos);
+  $('#sRun').onclick = () => run($('#sRun'), '#sStatus', runSearch);
+  $('#cRun').onclick = () => run($('#cRun'), '#cStatus', runComments);
+  $('#sQuery').onkeydown = e => { if (e.key === 'Enter') $('#sRun').click(); };
+  $('#cVideo').onkeydown = e => { if (e.key === 'Enter') $('#cRun').click(); };
+  $('#cKeywords').oninput = () => renderComments();
+  ['#sType', '#sCount'].forEach(s => { $(s).onchange = updateSearchCost; });
+  updateSearchCost();
+  initSettings();
+  renderStatus();
+  switchTab(getKey() ? (store('yt_tab') || 'channels') : 'settings');
+}
+
+init();

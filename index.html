@@ -1,0 +1,229 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>YT 데이터 추출기</title>
+  <meta name="description" content="개인 YouTube Data API 키로 채널·영상·댓글 지표를 추출하고 CSV로 내려받는 브랜드 분석 도구">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="top">
+    <div class="brand">
+      <span class="logo" aria-hidden="true">▶</span>
+      <div>
+        <h1>YT 데이터 추출기</h1>
+        <p>브랜드 · 인플루언서 분석용 YouTube 지표 추출</p>
+      </div>
+    </div>
+    <div class="status">
+      <span id="keyStatus" class="pill">API 키 없음</span>
+      <span id="quota" class="pill" title="이 브라우저에서 오늘 사용한 추정 할당량 (태평양 시간 자정에 초기화)">오늘 0 / 10,000</span>
+    </div>
+  </header>
+
+  <nav class="tabs" role="tablist">
+    <button role="tab" data-tab="channels" class="active">채널 분석</button>
+    <button role="tab" data-tab="videos">영상 분석</button>
+    <button role="tab" data-tab="search">키워드 검색</button>
+    <button role="tab" data-tab="comments">댓글 수집</button>
+    <button role="tab" data-tab="settings">API 키 설정</button>
+  </nav>
+
+  <main>
+    <!-- 채널 분석 -->
+    <section id="tab-channels" class="panel active">
+      <div class="card">
+        <label class="field">
+          <span>채널 목록 <em>한 줄에 하나씩 · 채널 URL, @핸들, 채널 ID(UC…)</em></span>
+          <textarea id="chInput" rows="4" placeholder="https://www.youtube.com/@channelname&#10;@handle&#10;UCxxxxxxxxxxxxxxxxxxxxxx"></textarea>
+        </label>
+        <div class="row">
+          <label class="inline">최근 영상
+            <select id="chN">
+              <option>10</option><option selected>30</option><option>50</option><option>100</option>
+            </select> 개 기준
+          </label>
+          <label class="inline">분석 대상
+            <select id="chType">
+              <option value="all">전체</option>
+              <option value="long">롱폼만</option>
+              <option value="short">쇼츠만</option>
+            </select>
+          </label>
+          <button id="chRun" class="primary">분석하기</button>
+        </div>
+        <details class="help">
+          <summary>지표 설명</summary>
+          <dl>
+            <dt>참여율</dt><dd>(좋아요 + 댓글) ÷ 조회수. 분석 대상 영상 전체 합산 기준.</dd>
+            <dt>구독자 대비 조회율</dt><dd>평균 조회수 ÷ 구독자 수. 구독자 중 실제로 영상을 보는 비율의 근사치로, 구독자 수 “거품”을 가늠할 때 씁니다.</dd>
+            <dt>중앙값 조회수</dt><dd>한두 개 대박 영상에 평균이 왜곡되는 것을 막아 주는, 광고 단가 산정에 더 현실적인 기준입니다.</dd>
+            <dt>히트 영상</dt><dd>중앙값의 2배 이상 조회된 영상 수.</dd>
+            <dt>조회수 편차(CV)</dt><dd>표준편차 ÷ 평균. 낮을수록 영상별 성과가 안정적입니다.</dd>
+            <dt>주간 업로드</dt><dd>분석 대상 영상 중 가장 오래된 영상부터 오늘까지의 주 평균 업로드 수.</dd>
+            <dt>쇼츠 판별</dt><dd>API가 쇼츠 여부를 제공하지 않아 60초 이하, 또는 3분 이하이면서 제목·설명에 #shorts가 있으면 쇼츠로 추정합니다.</dd>
+          </dl>
+          <p class="muted">구독자 수는 YouTube 정책상 유효숫자 3자리로 반올림되어 제공됩니다. 공유 수, 시청 시간, 노출수, 클릭률, 시청자 연령/성별은 채널 소유자만 볼 수 있는 YouTube Analytics 데이터라 이 도구로는 추출할 수 없습니다.</p>
+        </details>
+      </div>
+      <div id="chStatus" class="status-line"></div>
+      <div id="chResult"></div>
+      <div id="chDetail"></div>
+    </section>
+
+    <!-- 영상 분석 -->
+    <section id="tab-videos" class="panel">
+      <div class="card">
+        <label class="field">
+          <span>영상 목록 <em>한 줄에 하나씩 · 영상 URL, 쇼츠 URL, youtu.be 링크, 영상 ID</em></span>
+          <textarea id="vInput" rows="5" placeholder="https://www.youtube.com/watch?v=xxxxxxxxxxx&#10;https://youtu.be/xxxxxxxxxxx&#10;https://www.youtube.com/shorts/xxxxxxxxxxx"></textarea>
+        </label>
+        <div class="row">
+          <span class="muted">캠페인·협찬 영상 성과를 한 번에 모아 볼 때 유용합니다.</span>
+          <button id="vRun" class="primary">분석하기</button>
+        </div>
+      </div>
+      <div id="vStatus" class="status-line"></div>
+      <div id="vResult"></div>
+    </section>
+
+    <!-- 키워드 검색 -->
+    <section id="tab-search" class="panel">
+      <div class="card">
+        <div class="grid">
+          <label class="field wide">
+            <span>검색어</span>
+            <input id="sQuery" type="text" placeholder="예: 비건 화장품 리뷰">
+          </label>
+          <label class="field">
+            <span>검색 대상</span>
+            <select id="sType"><option value="video">영상</option><option value="channel">채널</option></select>
+          </label>
+          <label class="field">
+            <span>정렬</span>
+            <select id="sOrder">
+              <option value="relevance">관련도</option>
+              <option value="viewCount">조회수</option>
+              <option value="date">최신순</option>
+              <option value="rating">평점</option>
+            </select>
+          </label>
+          <label class="field">
+            <span>기간</span>
+            <select id="sPeriod">
+              <option value="">전체</option>
+              <option value="7">최근 7일</option>
+              <option value="30">최근 30일</option>
+              <option value="90">최근 90일</option>
+              <option value="365">최근 1년</option>
+            </select>
+          </label>
+          <label class="field">
+            <span>영상 길이</span>
+            <select id="sDuration">
+              <option value="any">전체</option>
+              <option value="short">4분 미만</option>
+              <option value="medium">4~20분</option>
+              <option value="long">20분 초과</option>
+            </select>
+          </label>
+          <label class="field">
+            <span>지역</span>
+            <select id="sRegion"><option value="KR">한국</option><option value="US">미국</option><option value="JP">일본</option><option value="">전체</option></select>
+          </label>
+          <label class="field">
+            <span>결과 수</span>
+            <select id="sCount"><option>25</option><option selected>50</option><option>100</option><option>150</option></select>
+          </label>
+        </div>
+        <div class="row">
+          <span id="sCost" class="muted"></span>
+          <button id="sRun" class="primary">검색하기</button>
+        </div>
+      </div>
+      <div id="sStatus" class="status-line"></div>
+      <div id="sResult"></div>
+    </section>
+
+    <!-- 댓글 수집 -->
+    <section id="tab-comments" class="panel">
+      <div class="card">
+        <div class="grid">
+          <label class="field wide">
+            <span>영상 URL 또는 ID</span>
+            <input id="cVideo" type="text" placeholder="https://www.youtube.com/watch?v=xxxxxxxxxxx">
+          </label>
+          <label class="field">
+            <span>정렬</span>
+            <select id="cOrder"><option value="relevance">인기순</option><option value="time">최신순</option></select>
+          </label>
+          <label class="field">
+            <span>최대 수집</span>
+            <select id="cMax"><option>100</option><option selected>500</option><option>1000</option><option>3000</option></select>
+          </label>
+          <label class="field wide">
+            <span>언급 키워드 <em>쉼표로 구분 · 브랜드명, 제품명 등</em></span>
+            <input id="cKeywords" type="text" placeholder="예: 브랜드명, 제품명, 가격, 광고">
+          </label>
+        </div>
+        <div class="row">
+          <span class="muted">최상위 댓글을 수집합니다. 100개당 할당량 1이 사용됩니다.</span>
+          <button id="cRun" class="primary">수집하기</button>
+        </div>
+      </div>
+      <div id="cStatus" class="status-line"></div>
+      <div id="cResult"></div>
+    </section>
+
+    <!-- 설정 -->
+    <section id="tab-settings" class="panel">
+      <div class="card">
+        <h2>YouTube Data API 키</h2>
+        <div class="row keyrow">
+          <input id="keyInput" type="password" placeholder="AIza로 시작하는 API 키" autocomplete="off" spellcheck="false">
+          <button id="keyShow" class="ghost" type="button">보기</button>
+        </div>
+        <label class="check"><input id="keyRemember" type="checkbox" checked> 이 브라우저에 저장 (끄면 탭을 닫을 때 사라짐)</label>
+        <div class="row">
+          <button id="keySave" class="primary">저장</button>
+          <button id="keyTest" class="ghost">연결 테스트</button>
+          <button id="keyDelete" class="ghost danger">키 삭제</button>
+        </div>
+        <div id="keyMsg" class="status-line"></div>
+        <p class="muted">키는 서버로 전송되지 않고, 이 브라우저에서 Google API로만 직접 전달됩니다.</p>
+      </div>
+
+      <div class="card">
+        <h2>API 키 발급 방법 (약 5분)</h2>
+        <ol class="steps">
+          <li><a href="https://console.cloud.google.com/" target="_blank" rel="noopener">Google Cloud Console</a>에 로그인하고 상단에서 <b>새 프로젝트</b>를 만듭니다.</li>
+          <li><b>API 및 서비스 → 라이브러리</b>에서 <b>YouTube Data API v3</b>를 검색해 <b>사용</b>을 누릅니다.</li>
+          <li><b>API 및 서비스 → 사용자 인증 정보 → 사용자 인증 정보 만들기 → API 키</b>를 선택합니다.</li>
+          <li>(권장) 생성된 키의 <b>키 제한</b>에서 API 제한을 <b>YouTube Data API v3</b>로, 웹사이트 제한을 이 사이트 주소로 설정합니다.</li>
+          <li>키를 복사해 위 입력란에 붙여넣고 <b>저장 → 연결 테스트</b>를 누르세요.</li>
+        </ol>
+        <p class="muted">무료로 하루 10,000 유닛이 제공되며 태평양 시간 자정(한국 시간 오후 4~5시)에 초기화됩니다.</p>
+      </div>
+
+      <div class="card">
+        <h2>할당량 사용 기준</h2>
+        <table class="plain">
+          <thead><tr><th>작업</th><th class="num">예상 유닛</th></tr></thead>
+          <tbody>
+            <tr><td>채널 1개 분석 (최근 50개 영상)</td><td class="num">약 3</td></tr>
+            <tr><td>영상 50개 지표 조회</td><td class="num">약 2</td></tr>
+            <tr><td>댓글 100개 수집</td><td class="num">1</td></tr>
+            <tr><td>키워드 검색 50건</td><td class="num">약 102</td></tr>
+            <tr><td>URL이 아닌 채널명으로 채널 찾기</td><td class="num">100</td></tr>
+          </tbody>
+        </table>
+        <p class="muted">검색은 비용이 크므로, 채널은 가능하면 URL이나 @핸들로 입력하세요.</p>
+      </div>
+    </section>
+  </main>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <script src="app.js"></script>
+</body>
+</html>

@@ -669,7 +669,7 @@ function updateSearchCost() {
   const count = +$('#sCount').value;
   const pages = Math.ceil(count / 50);
   const extra = Math.ceil(count / 50) * ($('#sType').value === 'video' ? 2 : 1);
-  $('#sCost').textContent = `예상 할당량: 약 ${(pages * 100 + extra).toLocaleString()} 유닛 (검색 1회 = 100)`;
+  $('#sCost').textContent = `예상 할당량: 약 ${(pages * 100 + extra).toLocaleString()} 유닛 (검색 1회 = 100 · 제외·종류 조건으로 빠진 만큼 더 검색하면 늘어남)`;
   $('#sKind').disabled = $('#sType').value !== 'video';
   const custom = $('#sPeriod').value === 'custom';
   $('#sDates').hidden = !custom;
@@ -706,8 +706,7 @@ async function runSearch() {
   }
   const params = {
     part: 'snippet', type, q: apiQuery,
-    // YouTube 검색은 좋아요수 정렬이 없어 좋아요 기반 순위인 rating으로 받은 뒤 실제 좋아요수로 다시 정렬한다
-    order: order === 'likes' ? 'rating' : order,
+    order,
     regionCode: $('#sRegion').value,
     relevanceLanguage: $('#sRegion').value === 'KR' ? 'ko' : undefined,
     publishedAfter,
@@ -716,44 +715,62 @@ async function runSearch() {
     videoDuration: type === 'video' && kind === 'short' ? 'short' : undefined,
   };
 
-  const ids = [];
-  let pageToken;
+  // 제외 단어·영상 종류로 빠진 만큼 다음 페이지에서 채워 요청한 개수를 맞춘다.
+  // 검색 1회가 100 유닛이라 조건이 너무 좁을 때 할당량을 다 쓰지 않도록 추가 검색은 3페이지까지만 한다.
+  const filtering = excludes.length > 0 || (type === 'video' && kind !== 'all');
+  const maxPages = Math.ceil(count / 50) + (filtering ? 3 : 0);
+  const keep = type === 'video'
+    ? v => (isExcluded(v.title, v.description, v.tags, v.channelTitle) ? 'excluded'
+      : kind !== 'all' && (kind === 'short') !== v.isShort ? 'kind' : 'ok')
+    : c => (isExcluded(c.title, c.handle, c.description) ? 'excluded' : 'ok');
+  const kept = [], seen = new Set();
+  let pageToken, pages = 0, dropped = 0, kindDropped = 0;
   do {
-    setStatus('#sStatus', `검색 중… ${ids.length}건`, 'busy');
-    const d = await yt('search', { ...params, maxResults: Math.min(50, count - ids.length), pageToken });
-    ids.push(...d.items.map(i => (type === 'video' ? i.id.videoId : i.id.channelId)).filter(Boolean));
+    setStatus('#sStatus', `검색 중… ${kept.length}/${count}건`, 'busy');
+    const want = filtering ? 50 : Math.min(50, count - kept.length);
+    const d = await yt('search', { ...params, maxResults: want, pageToken });
+    pages++;
     pageToken = d.nextPageToken;
-  } while (pageToken && ids.length < count);
+    const ids = d.items.map(i => (type === 'video' ? i.id.videoId : i.id.channelId)).filter(id => id && !seen.has(id));
+    ids.forEach(id => seen.add(id));
+    if (!ids.length) continue;
+    const items = type === 'video' ? await fetchVideos(ids) : await fetchChannels(ids);
+    for (const it of items) {
+      const r = keep(it);
+      if (r === 'excluded') dropped++;
+      else if (r === 'kind') kindDropped++;
+      else if (kept.length < count) kept.push(it);
+    }
+  } while (kept.length < count && pageToken && pages < maxPages);
 
-  if (!ids.length) { setStatus('#sStatus', '검색 결과가 없습니다.', ''); $('#sResult').innerHTML = ''; return; }
+  if (!kept.length) { setStatus('#sStatus', '조건에 맞는 검색 결과가 없습니다.', ''); $('#sResult').innerHTML = ''; return; }
   setStatus('#sStatus', '상세 지표 불러오는 중…', 'busy');
+  const notes = [
+    dropped ? `제외 단어가 들어간 ${dropped}건` : '',
+    kindDropped ? `${kind === 'short' ? '쇼츠' : '일반 영상'}가 아닌 ${kindDropped}건` : '',
+  ].filter(Boolean);
+  const sub = [
+    notes.length ? `${notes.join(', ')}을 빼고 다시 채웠습니다` : '',
+    kept.length < count ? `조건에 맞는 결과가 ${kept.length}건뿐이었습니다` : '',
+  ].filter(Boolean).join(' · ');
 
   if (type === 'video') {
-    const all = await fetchVideos(ids);
-    const notExcluded = all.filter(v => !isExcluded(v.title, v.description, v.tags, v.channelTitle));
-    const vids = notExcluded.filter(v => kind === 'all' || (kind === 'short' ? v.isShort : !v.isShort));
-    if (order === 'likes') vids.sort((a, b) => (b.likes ?? -1) - (a.likes ?? -1));
+    const vids = kept;
     await attachChannelStats(vids);
     searchResults = vids;
     const cols = videoCols(true);
-    const dropped = all.length - notExcluded.length;
-    const kindDropped = notExcluded.length - vids.length;
     const body = block($('#sResult'), {
       title: `“${q}” 영상 검색 결과 ${vids.length}건`,
-      sub: (dropped ? `제외 단어가 들어간 ${dropped}건을 뺐습니다 · ` : '')
-        + (kindDropped ? `${kind === 'short' ? '쇼츠' : '일반 영상'}가 아닌 ${kindDropped}건을 뺐습니다 · ` : '')
-        + '구독자 대비 조회율이 높은 영상은 알고리즘 추천을 받은 바이럴 콘텐츠일 가능성이 큽니다.',
+      sub,
       actions: [
         { label: '영상들을 영상별 비교로 보내기', run: () => sendToVideos(vids.map(v => v.id)) },
         { label: '채널들을 채널별 비교로 보내기', run: () => sendToChannels(vids.map(v => v.channelId)) },
         { label: 'CSV 다운로드', run: () => downloadCSV(`검색_${q}`, [...cols, ...videoCsvExtra], searchResults) },
       ],
     });
-    renderTable(body, cols, vids, order === 'likes' ? { sortKey: 'likes' } : {});
+    renderTable(body, cols, vids);
   } else {
-    const all = await fetchChannels(ids);
-    const chs = all.filter(c => !isExcluded(c.title, c.handle, c.description));
-    const dropped = all.length - chs.length;
+    const chs = kept;
     searchResults = chs;
     const cols = [
       channelCol,
@@ -766,7 +783,7 @@ async function runSearch() {
     ];
     const body = block($('#sResult'), {
       title: `“${q}” 채널 검색 결과 ${chs.length}건`,
-      sub: (dropped ? `제외 단어가 들어간 ${dropped}건을 뺐습니다 · ` : '') + '정확한 최근 성과는 “채널별 비교로 보내기” 후 확인하세요.',
+      sub: [sub, '정확한 최근 성과는 “채널별 비교로 보내기” 후 확인하세요.'].filter(Boolean).join(' · '),
       actions: [
         { label: '채널별 비교로 보내기', run: () => sendToChannels(chs.map(c => c.id)) },
         { label: 'CSV 다운로드', run: () => downloadCSV(`채널검색_${q}`, [{ key: 'title', label: '채널명', type: 'text' }, { key: 'handle', label: '핸들', type: 'text' }, { key: 'id', label: '채널ID', type: 'text' }, { key: 'url', label: 'URL', type: 'text' }, ...cols.slice(1)], searchResults) },

@@ -199,11 +199,6 @@ button:focus-visible, .tabs button:focus-visible { outline: 2px solid var(--gree
 
 .stats { display: grid; grid-template-columns: repeat(auto-fill, minmax(165px, 1fr)); gap: 0; margin-bottom: 22px; border-top: 1px solid var(--rule); border-left: 1px solid var(--rule); }
 .stat { padding: 14px 16px 16px; border-right: 1px solid var(--rule); border-bottom: 1px solid var(--rule); transition: background .2s; }
-.stat:first-child {
-  background:
-    repeating-linear-gradient(45deg, rgba(43, 174, 102, .16) 0 1px, transparent 1px 9px),
-    repeating-linear-gradient(-45deg, rgba(43, 174, 102, .16) 0 1px, transparent 1px 9px);
-}
 .stat:hover { background-color: var(--tint); }
 .stat .label { color: var(--ink-2); font-size: 12px; font-weight: 600; }
 .stat .value {

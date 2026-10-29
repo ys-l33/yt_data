@@ -102,6 +102,7 @@ body::before {
 .weather-night { --sky-dim: .26; }
 .weather-night.weather-rain { --sky-dim: .34; }
 .motion-off .ambient span, .motion-off .ambient i { animation-play-state: paused; }
+#motionToggle { margin-right: 8px; }
 .pill-btn { font: inherit; font-size: 12px; font-weight: 600; background: transparent; cursor: pointer; }
 .pill-btn:hover { background: rgba(252, 246, 245, .35); }
 .pill-btn[aria-pressed="true"] { background: var(--ink); color: var(--ivory); }

@@ -1359,10 +1359,8 @@ function applyWeather(code, isDay) {
   b.add('weather-' + kind);
   if (!isDay) b.add('weather-night');
   WeatherFx.set(kind, level);
-  const pill = $('#weatherPill');
-  pill.textContent = `서울 · ${label}${isDay ? '' : ' · 밤'}`;
-  pill.title = '서울의 현재 날씨에 맞춰 배경이 바뀝니다 (Open-Meteo, 약 20분마다 갱신)';
-  pill.hidden = !label;
+  // 날씨 표시는 따로 두지 않고 배경 버튼에 마우스를 올렸을 때만 알려준다
+  if (label) $('#motionToggle').title = `배경은 서울의 현재 날씨(${label}${isDay ? '' : ', 밤'})에 맞춰 바뀝니다`;
 }
 
 async function loadWeather() {

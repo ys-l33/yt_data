@@ -79,6 +79,11 @@ async function yt(endpoint, params) {
   return data;
 }
 
+// 할당량이 도중에 떨어지면 그때까지 받은 결과는 살려서 보여주고 안내한다
+const QUOTA_RESET = '태평양 시간 자정(한국 시간 오후 4~5시)에 초기화됩니다.';
+const isQuotaError = e => /quotaExceeded|dailyLimitExceeded/i.test(e?.reason || '');
+const quotaNotice = (sel, what) => setStatus(sel, `할당량이 떨어져서 ${what} ${QUOTA_RESET}`, 'error');
+
 const chunk = (arr, n) => Array.from({ length: Math.ceil(arr.length / n) }, (_, i) => arr.slice(i * n, i * n + n));
 const unique = arr => [...new Set(arr)];
 
@@ -556,21 +561,27 @@ async function runChannels() {
   if (!lines.length) return toast('분석할 채널을 입력해 주세요.');
   const n = +$('#chN').value, type = $('#chType').value;
 
-  const ids = [], failed = [];
-  for (const [i, line] of lines.entries()) {
-    setStatus('#chStatus', `채널 확인 중… (${i + 1}/${lines.length}) ${line}`, 'busy');
-    const id = await resolveChannelId(line);
-    if (id) ids.push(id); else failed.push(line);
-  }
-  if (!ids.length) throw new Error('채널을 찾지 못했습니다: ' + failed.join(', '));
+  const ids = [], failed = [], results = [];
+  let quotaHit = false;
+  try {
+    for (const [i, line] of lines.entries()) {
+      setStatus('#chStatus', `채널 확인 중… (${i + 1}/${lines.length}) ${line}`, 'busy');
+      const id = await resolveChannelId(line);
+      if (id) ids.push(id); else failed.push(line);
+    }
+    if (!ids.length) throw new Error('채널을 찾지 못했습니다: ' + failed.join(', '));
 
-  const channels = await fetchChannels(ids);
-  const results = [];
-  for (const [i, ch] of channels.entries()) {
-    const label = `${ch.title} 영상 불러오는 중… (${i + 1}/${channels.length})`;
-    setStatus('#chStatus', label, 'busy');
-    const vids = ch.uploads ? await fetchRecentVideos(ch.uploads, n, type, k => setStatus('#chStatus', `${label} ${k}개`, 'busy')) : [];
-    results.push(channelMetrics(ch, vids));
+    const channels = await fetchChannels(ids);
+    for (const [i, ch] of channels.entries()) {
+      const label = `${ch.title} 영상 불러오는 중… (${i + 1}/${channels.length})`;
+      setStatus('#chStatus', label, 'busy');
+      const vids = ch.uploads ? await fetchRecentVideos(ch.uploads, n, type, k => setStatus('#chStatus', `${label} ${k}개`, 'busy')) : [];
+      results.push(channelMetrics(ch, vids));
+    }
+  } catch (e) {
+    // 도중에 끊긴 채널은 영상이 일부만 모여 지표가 왜곡되므로 넣지 않는다
+    if (!isQuotaError(e) || !results.length) throw e;
+    quotaHit = true;
   }
   channelResults = results;
 
@@ -592,6 +603,7 @@ async function runChannels() {
   });
   $('#chDetail').innerHTML = '';
   if (results.length === 1) showChannelDetail(results[0]);
+  if (quotaHit) quotaNotice('#chStatus', `채널 ${lines.length}개 중 ${results.length}개까지만 분석했습니다.`);
 }
 
 function showChannelDetail(c) {
@@ -636,13 +648,29 @@ async function runVideos() {
   const bad = lines.filter(l => !parseVideoId(l));
   if (!ids.length) return toast('영상 URL이나 ID를 입력해 주세요.');
 
-  setStatus('#vStatus', `영상 ${ids.length}개 조회 중…`, 'busy');
-  const vids = await fetchVideos(ids);
-  setStatus('#vStatus', '채널 구독자 수 조회 중…', 'busy');
-  await attachChannelStats(vids);
+  const vids = [];
+  let checked = 0, quotaMsg = '';
+  try {
+    for (const part of chunk(ids, 50)) {
+      setStatus('#vStatus', `영상 ${ids.length}개 조회 중… ${checked}개 완료`, 'busy');
+      vids.push(...await fetchVideos(part));
+      checked += part.length;
+    }
+  } catch (e) {
+    if (!isQuotaError(e) || !vids.length) throw e;
+    quotaMsg = `영상 ${ids.length}개 중 ${checked}개까지만 불러왔습니다. 구독자 수도 불러오지 못했습니다.`;
+  }
+  if (!quotaMsg) {
+    setStatus('#vStatus', '채널 구독자 수 조회 중…', 'busy');
+    try { await attachChannelStats(vids); }
+    catch (e) {
+      if (!isQuotaError(e)) throw e;
+      quotaMsg = '영상 지표는 모두 불러왔지만 구독자 수는 불러오지 못했습니다.';
+    }
+  }
   videoResults = vids;
 
-  const missing = ids.length - vids.length;
+  const missing = checked - vids.length;
   const tv = sum(vids.map(v => v.views)), tl = sum(vids.map(v => v.likes || 0)), tc = sum(vids.map(v => v.comments || 0));
   const cols = videoCols(true);
   const body = block($('#vResult'), {
@@ -659,6 +687,7 @@ async function runVideos() {
     ['평균 구독자 대비 조회율', fmt.pct(mean(vids.filter(v => v.reach != null).map(v => v.reach)))],
   ]) + '<div class="vtable"></div>';
   renderTable($('.vtable', body), cols, vids);
+  if (quotaMsg) quotaNotice('#vStatus', quotaMsg);
 }
 
 /* ---------------- 탭: 키워드 검색 ---------------- */
@@ -724,24 +753,29 @@ async function runSearch() {
       : kind !== 'all' && (kind === 'short') !== v.isShort ? 'kind' : 'ok')
     : c => (isExcluded(c.title, c.handle, c.description) ? 'excluded' : 'ok');
   const kept = [], seen = new Set();
-  let pageToken, pages = 0, dropped = 0, kindDropped = 0;
-  do {
-    setStatus('#sStatus', `검색 중… ${kept.length}/${count}건`, 'busy');
-    const want = filtering ? 50 : Math.min(50, count - kept.length);
-    const d = await yt('search', { ...params, maxResults: want, pageToken });
-    pages++;
-    pageToken = d.nextPageToken;
-    const ids = d.items.map(i => (type === 'video' ? i.id.videoId : i.id.channelId)).filter(id => id && !seen.has(id));
-    ids.forEach(id => seen.add(id));
-    if (!ids.length) continue;
-    const items = type === 'video' ? await fetchVideos(ids) : await fetchChannels(ids);
-    for (const it of items) {
-      const r = keep(it);
-      if (r === 'excluded') dropped++;
-      else if (r === 'kind') kindDropped++;
-      else if (kept.length < count) kept.push(it);
-    }
-  } while (kept.length < count && pageToken && pages < maxPages);
+  let pageToken, pages = 0, dropped = 0, kindDropped = 0, quotaMsg = '';
+  try {
+    do {
+      setStatus('#sStatus', `검색 중… ${kept.length}/${count}건`, 'busy');
+      const want = filtering ? 50 : Math.min(50, count - kept.length);
+      const d = await yt('search', { ...params, maxResults: want, pageToken });
+      pages++;
+      pageToken = d.nextPageToken;
+      const ids = d.items.map(i => (type === 'video' ? i.id.videoId : i.id.channelId)).filter(id => id && !seen.has(id));
+      ids.forEach(id => seen.add(id));
+      if (!ids.length) continue;
+      const items = type === 'video' ? await fetchVideos(ids) : await fetchChannels(ids);
+      for (const it of items) {
+        const r = keep(it);
+        if (r === 'excluded') dropped++;
+        else if (r === 'kind') kindDropped++;
+        else if (kept.length < count) kept.push(it);
+      }
+    } while (kept.length < count && pageToken && pages < maxPages);
+  } catch (e) {
+    if (!isQuotaError(e) || !kept.length) throw e;
+    quotaMsg = `${count}건 중 ${kept.length}건까지만 검색했습니다.`;
+  }
 
   if (!kept.length) { setStatus('#sStatus', '조건에 맞는 검색 결과가 없습니다.', ''); $('#sResult').innerHTML = ''; return; }
   setStatus('#sStatus', '상세 지표 불러오는 중…', 'busy');
@@ -751,12 +785,18 @@ async function runSearch() {
   ].filter(Boolean);
   const sub = [
     notes.length ? `${notes.join(', ')}을 빼고 다시 채웠습니다` : '',
-    kept.length < count ? `조건에 맞는 결과가 ${kept.length}건뿐이었습니다` : '',
+    kept.length < count && !quotaMsg ? `조건에 맞는 결과가 ${kept.length}건뿐이었습니다` : '',
   ].filter(Boolean).join(' · ');
 
   if (type === 'video') {
     const vids = kept;
-    await attachChannelStats(vids);
+    if (!quotaMsg) {
+      try { await attachChannelStats(vids); }
+      catch (e) {
+        if (!isQuotaError(e)) throw e;
+        quotaMsg = '검색 결과는 모두 불러왔지만 구독자 수는 불러오지 못했습니다.';
+      }
+    }
     searchResults = vids;
     const cols = videoCols(true);
     const body = block($('#sResult'), {
@@ -769,6 +809,7 @@ async function runSearch() {
       ],
     });
     renderTable(body, cols, vids);
+    if (quotaMsg) quotaNotice('#sStatus', quotaMsg);
   } else {
     const chs = kept;
     searchResults = chs;
@@ -790,6 +831,7 @@ async function runSearch() {
       ],
     });
     renderTable(body, cols, chs);
+    if (quotaMsg) quotaNotice('#sStatus', quotaMsg);
   }
 }
 
@@ -837,28 +879,34 @@ async function runComments() {
   if (!video) throw new Error('영상을 찾을 수 없습니다.');
 
   const comments = [];
-  let pageToken;
-  do {
-    setStatus('#cStatus', `댓글 수집 중… ${comments.length.toLocaleString()}개`, 'busy');
-    const d = await yt('commentThreads', { part: 'snippet', videoId: id, maxResults: 100, order, textFormat: 'plainText', pageToken });
-    for (const it of d.items) {
-      const s = it.snippet.topLevelComment.snippet;
-      comments.push({
-        id: it.id,
-        author: s.authorDisplayName,
-        authorUrl: s.authorChannelUrl,
-        text: s.textOriginal ?? s.textDisplay ?? '',
-        likes: s.likeCount || 0,
-        replies: it.snippet.totalReplyCount || 0,
-        publishedAt: new Date(s.publishedAt),
-        edited: s.updatedAt !== s.publishedAt,
-      });
-    }
-    pageToken = d.nextPageToken;
-  } while (pageToken && comments.length < max);
+  let pageToken, quotaHit = false;
+  try {
+    do {
+      setStatus('#cStatus', `댓글 수집 중… ${comments.length.toLocaleString()}개`, 'busy');
+      const d = await yt('commentThreads', { part: 'snippet', videoId: id, maxResults: 100, order, textFormat: 'plainText', pageToken });
+      for (const it of d.items) {
+        const s = it.snippet.topLevelComment.snippet;
+        comments.push({
+          id: it.id,
+          author: s.authorDisplayName,
+          authorUrl: s.authorChannelUrl,
+          text: s.textOriginal ?? s.textDisplay ?? '',
+          likes: s.likeCount || 0,
+          replies: it.snippet.totalReplyCount || 0,
+          publishedAt: new Date(s.publishedAt),
+          edited: s.updatedAt !== s.publishedAt,
+        });
+      }
+      pageToken = d.nextPageToken;
+    } while (pageToken && comments.length < max);
+  } catch (e) {
+    if (!isQuotaError(e) || !comments.length) throw e;
+    quotaHit = true;
+  }
 
   commentData = { video, comments: comments.slice(0, max), filter: null };
   renderComments();
+  if (quotaHit) quotaNotice('#cStatus', `댓글 ${fmt.num(comments.length)}개까지만 수집했습니다.`);
 }
 
 function renderComments() {

@@ -23,7 +23,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@0,300;0,500;1,300&family=Fraunces:ital,opsz,wght,SOFT,WONK@0,9..144,300..600,0..100,0..1;1,9..144,300..600,0..100,0..1&family=Gowun+Batang:wght@400;700&display=swap">
-  <link rel="stylesheet" href="style.css?v=20261029-22">
+  <link rel="stylesheet" href="style.css?v=20261029-23">
 </head>
 <body>
   <div class="ambient" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span><i></i><i></i><i></i><i></i><i></i><i></i></div>
@@ -164,7 +164,8 @@
           <label class="field">
             <span>결과 수</span>
             <select id="sCount"><option>25</option><option selected>50</option><option>100</option><option>150</option><option value="custom">직접 입력</option></select>
-            <input id="sCountCustom" type="number" min="1" max="500" step="1" placeholder="1~500" aria-label="결과 수 직접 입력" hidden>
+            <input id="sCountCustom" type="number" min="1" max="500" step="1" placeholder="1~500" aria-label="결과 수 직접 입력" aria-describedby="sCountHint" hidden>
+            <small id="sCountHint" class="field-hint" hidden>YouTube 검색은 검색어당 약 500건까지만 결과를 줘서 최대 500건입니다.</small>
           </label>
           <div id="sDates" class="field wide" hidden>
             <span>기간 직접 입력 <em>게시일 기준 · 시작일과 종료일 포함</em></span>
@@ -299,6 +300,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=20261029-22"></script>
+  <script src="app.js?v=20261029-23"></script>
 </body>
 </html>

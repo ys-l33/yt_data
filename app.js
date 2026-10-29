@@ -706,7 +706,7 @@ function searchCount() {
 }
 
 function updateSearchCost() {
-  $('#sCountCustom').hidden = $('#sCount').value !== 'custom';
+  $('#sCountCustom').hidden = $('#sCountHint').hidden = $('#sCount').value !== 'custom';
   const count = searchCount();
   const pages = Math.ceil(count / 50);
   const extra = Math.ceil(count / 50) * ($('#sType').value === 'video' ? 2 : 1);

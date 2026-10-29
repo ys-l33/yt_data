@@ -14,8 +14,8 @@
   --paper-hi: #FFFCFB;
   --error: #A0402F;
   /* 영상 형식 색: 차트 막대·형식 태그·범례가 같은 색을 쓴다 */
-  --c-long: var(--green);
-  --c-short: #7B61D6;   /* 초록과 색맹 시뮬레이션에서도 구분되는 보라 (dataviz 검증) */
+  --c-long: #74C69A;    /* 브랜드 초록을 채도 낮춘 파스텔 */
+  --c-short: #A291DC;   /* 파스텔 라벤더. 초록과 색맹 시뮬레이션에서도 구분됨 (dataviz 검증) */
 
   --f-display: "Fraunces", "Gowun Batang", Georgia, serif;
   --f-title: "Gowun Batang", "Fraunces", serif;
@@ -303,7 +303,7 @@ td.text { min-width: 320px; max-width: 640px; white-space: pre-wrap; word-break:
   white-space: nowrap;
 }
 .tag.long { background: var(--c-long); border-color: var(--c-long); }
-.tag.short { background: var(--c-short); border-color: var(--c-short); color: #fff; }
+.tag.short { background: var(--c-short); border-color: var(--c-short); }
 
 /* ---------- 차트 ---------- */
 .chart-wrap { margin-bottom: 22px; padding: 16px 16px 12px; border: 1px solid var(--rule); background: var(--paper-hi); }

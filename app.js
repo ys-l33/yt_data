@@ -38,6 +38,7 @@ function renderStatus() {
   const q = $('#quota');
   q.textContent = `오늘 약 ${used.toLocaleString()} / ${DAILY_QUOTA.toLocaleString()}`;
   q.className = 'pill' + (used > DAILY_QUOTA * 0.8 ? ' warn' : '');
+  renderHomeSteps();
 }
 
 /* ---------------- API 호출 ---------------- */
@@ -606,6 +607,7 @@ async function runChannels() {
   });
   $('#chDetail').innerHTML = '';
   if (results.length === 1) showChannelDetail(results[0]);
+  addRecent('channels', results.length > 1 ? `${results[0].title} 외 ${results.length - 1}개` : results[0].title);
   if (quotaHit) quotaNotice('#chStatus', `채널 ${lines.length}개 중 ${results.length}개까지만 분석했습니다.`);
 }
 
@@ -691,6 +693,7 @@ async function runVideos() {
   ]) + '<div class="vtable"></div>';
   renderTable($('.vtable', body), cols, vids);
   if (quotaMsg) quotaNotice('#vStatus', quotaMsg);
+  if (vids.length) addRecent('videos', vids.length > 1 ? `${vids[0].title} 외 ${vids.length - 1}개` : vids[0].title);
 }
 
 /* ---------------- 탭: 키워드 검색 ---------------- */
@@ -809,6 +812,7 @@ async function runSearch() {
   }
   searchSession = session;
   renderSearch();
+  addRecent('search', `“${q}” ${type === 'video' ? '영상' : '채널'} 검색`);
   if (quotaMsg) quotaNotice('#sStatus', quotaMsg);
 }
 
@@ -1026,6 +1030,7 @@ async function runComments() {
   commentData = { video, comments: comments.slice(0, max), filter: null };
   renderComments();
   if (quotaHit) quotaNotice('#cStatus', `댓글 ${fmt.num(comments.length)}개까지만 수집했습니다.`);
+  addRecent('comments', video.title);
 }
 
 function renderComments() {
@@ -1212,6 +1217,7 @@ async function runThumbs() {
     if (o) downloadImage(o.url, thumbFileName(v, o));
   };
   if (quotaHit) quotaNotice('#tStatus', `영상 ${ids.length}개 중 ${checked}개까지만 불러왔습니다.`);
+  if (vids.length) addRecent('thumbs', vids.length > 1 ? `${vids[0].title} 외 ${vids.length - 1}개` : vids[0].title);
 }
 
 /* ---------------- 탭: 설정 ---------------- */
@@ -1422,6 +1428,113 @@ async function loadWeather() {
   } catch { /* 날씨를 못 받으면 눈 없이 기본 배경 그대로 둔다 */ }
 }
 
+/* ---------------- 홈 · 최근 작업 ----------------
+ * 분석을 실행할 때마다 그 탭의 입력값을 통째로 저장해 두고(이 브라우저에만), 홈에서 누르면 다시 채워 준다.
+ * 다시 실행은 하지 않는다 (할당량이 쓰이므로 직접 누르게 한다).
+ */
+const RECENT_MAX = 8;
+const TAB_NAMES = { channels: '채널별 비교', videos: '영상별 비교', search: '키워드 검색', comments: '댓글 분석', thumbs: '썸네일' };
+
+function loadRecent() {
+  try { return JSON.parse(store('yt_recent') || '[]'); } catch { return []; }
+}
+
+function snapshotPanel(name) {
+  const values = {};
+  $('#tab-' + name).querySelectorAll('input[id], textarea[id], select[id]').forEach(el => {
+    values[el.id] = el.type === 'checkbox' ? el.checked : el.value;
+  });
+  return values;
+}
+
+function addRecent(tab, label) {
+  const values = snapshotPanel(tab);
+  const key = JSON.stringify([tab, values]);
+  const list = loadRecent().filter(r => JSON.stringify([r.tab, r.values]) !== key);
+  list.unshift({ tab, label: String(label || '').slice(0, 80), values, at: Date.now() });
+  store('yt_recent', JSON.stringify(list.slice(0, RECENT_MAX)));
+}
+
+function restoreRecent(item) {
+  resetPanel(item.tab);
+  for (const [id, v] of Object.entries(item.values)) {
+    const el = document.getElementById(id);
+    if (!el) continue;
+    if (el.type === 'checkbox') el.checked = v; else el.value = v;
+  }
+  if (item.tab === 'search') updateSearchCost();
+  switchTab(item.tab);
+  window.scrollTo({ top: 0 });
+  toast('그때 입력한 내용을 채웠습니다. 실행 버튼을 눌러 주세요.');
+}
+
+function timeAgo(ms) {
+  const m = Math.round((Date.now() - ms) / 60000);
+  if (m < 1) return '방금';
+  if (m < 60) return `${m}분 전`;
+  if (m < 60 * 24) return `${Math.round(m / 60)}시간 전`;
+  if (m < 60 * 24 * 7) return `${Math.round(m / 1440)}일 전`;
+  return fmt.date(ms);
+}
+
+function renderRecent() {
+  const list = loadRecent();
+  $('#recentClear').hidden = !list.length;
+  $('#recentList').innerHTML = list.length
+    ? `<ul class="recent">${list.map((r, i) => `
+        <li>
+          <button type="button" class="recent-item" data-i="${i}">
+            <span class="tag">${esc(TAB_NAMES[r.tab] || r.tab)}</span>
+            <span class="recent-label">${esc(r.label)}</span>
+            <span class="muted recent-time">${timeAgo(r.at)}</span>
+          </button>
+          <button type="button" class="row-del" data-del="${i}" title="기록에서 삭제" aria-label="기록에서 삭제">×</button>
+        </li>`).join('')}</ul>`
+    : '<p class="empty-note">아직 기록이 없습니다. 분석을 실행하면 여기에 모입니다.</p>';
+}
+
+function renderHomeSteps() {
+  const el = $('#stepKeyState');
+  if (!el) return;
+  el.innerHTML = getKey()
+    ? '<span class="tag done">완료</span>'
+    : '<button type="button" class="ghost small" id="stepKeyBtn">연결하기</button>';
+  $('#stepKey').classList.toggle('done', !!getKey());
+  const btn = $('#stepKeyBtn');
+  if (btn) btn.onclick = openKeyModal;
+}
+
+function initHome() {
+  $('#tab-home .feature-grid').onclick = e => {
+    const f = e.target.closest('[data-go]');
+    if (!f) return;
+    resetPanel(f.dataset.go);
+    switchTab(f.dataset.go);
+    window.scrollTo({ top: 0 });
+  };
+  $('#recentList').onclick = e => {
+    const del = e.target.closest('[data-del]');
+    const list = loadRecent();
+    if (del) {
+      list.splice(+del.dataset.del, 1);
+      store('yt_recent', JSON.stringify(list));
+      return renderRecent();
+    }
+    const item = e.target.closest('.recent-item');
+    if (item && list[+item.dataset.i]) restoreRecent(list[+item.dataset.i]);
+  };
+  $('#recentClear').onclick = () => {
+    if (!confirm('최근 작업 기록을 모두 지울까요?')) return;
+    store('yt_recent', null);
+    renderRecent();
+  };
+  $('#homeLink').onclick = e => {
+    e.preventDefault();
+    switchTab('home');
+    window.scrollTo({ top: 0 });
+  };
+}
+
 /* ---------------- 탭 전환 · 초기화 ---------------- */
 
 // 탭 이름을 누르면 그 탭의 입력값·결과를 처음 상태로 되돌린다 (API 키 설정 탭은 키가 지워지지 않도록 제외)
@@ -1453,7 +1566,7 @@ function resetPanel(name) {
 function switchTab(name) {
   document.querySelectorAll('.tabs button').forEach(b => b.classList.toggle('active', b.dataset.tab === name));
   document.querySelectorAll('.panel').forEach(p => p.classList.toggle('active', p.id === 'tab-' + name));
-  store('yt_tab', name);
+  if (name === 'home') renderRecent();
 }
 
 function init() {
@@ -1483,13 +1596,14 @@ function init() {
   updateSearchCost();
   initSettings();
   initKeyModal();
+  initHome();
   const savedMotion = store('yt_motion');
   setMotion(savedMotion ? savedMotion === 'on' : !matchMedia('(prefers-reduced-motion: reduce)').matches);
   $('#motionToggle').onclick = () => setMotion(!motionOn());
   loadWeather();
   setInterval(loadWeather, WEATHER_TTL);
   renderStatus();
-  switchTab(store('yt_tab') || 'channels');
+  switchTab('home');
   if (!getKey()) openKeyModal();
 }
 

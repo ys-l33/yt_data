@@ -23,13 +23,13 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@0,300;0,500;1,300&family=Fraunces:ital,opsz,wght,SOFT,WONK@0,9..144,300..600,0..100,0..1;1,9..144,300..600,0..100,0..1&family=Gowun+Batang:wght@400;700&display=swap">
-  <link rel="stylesheet" href="style.css?v=20261029-25">
+  <link rel="stylesheet" href="style.css?v=20261029-26">
 </head>
 <body>
   <div class="ambient" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span><i></i><i></i><i></i><i></i><i></i><i></i></div>
   <canvas id="weatherFx" class="weather-fx" aria-hidden="true"></canvas>
   <header class="top">
-    <h1 class="wordmark">YouTube Data Playground&nbsp;<span class="emoji" aria-hidden="true">🎠</span></h1>
+    <h1 class="wordmark"><a href="./" id="homeLink" title="홈으로">YouTube Data Playground&nbsp;<span class="emoji" aria-hidden="true">🎠</span></a></h1>
     <div class="status">
       <button id="motionToggle" type="button" class="pill pill-btn" aria-pressed="false">배경 움직임 끄기</button>
       <span id="keyStatus" class="pill">API 키 없음</span>
@@ -39,7 +39,8 @@
   </header>
 
   <nav class="tabs" role="tablist">
-    <button role="tab" data-tab="channels" class="active"><span class="no">01</span>채널별 비교</button>
+    <button role="tab" data-tab="home" class="active"><span class="no">00</span>홈</button>
+    <button role="tab" data-tab="channels"><span class="no">01</span>채널별 비교</button>
     <button role="tab" data-tab="videos"><span class="no">02</span>영상별 비교</button>
     <button role="tab" data-tab="search"><span class="no">03</span>키워드 검색</button>
     <button role="tab" data-tab="comments"><span class="no">04</span>댓글 분석</button>
@@ -48,8 +49,41 @@
   </nav>
 
   <main>
+    <!-- 홈 -->
+    <section id="tab-home" class="panel active">
+      <div class="panel-head"><span class="kicker">(00) — HOME</span><h2 class="title">홈</h2></div>
+      <p class="home-lead">내 YouTube API 키로 채널·영상·댓글 지표를 한 번에 뽑아 보고, 비교하고, CSV로 저장하는 분석 도구입니다.</p>
+
+      <div class="feature-grid">
+        <button type="button" class="feature" data-go="channels"><span class="no">01</span><strong>채널별 비교</strong><span class="desc">경쟁·후보 채널의 구독자, 평균·중앙값 조회수, 참여율을 나란히 비교할 때</span><span class="go">바로 가기 →</span></button>
+        <button type="button" class="feature" data-go="videos"><span class="no">02</span><strong>영상별 비교</strong><span class="desc">캠페인·협찬 영상 성과를 한 표로 모아 보고 합계를 낼 때</span><span class="go">바로 가기 →</span></button>
+        <button type="button" class="feature" data-go="search"><span class="no">03</span><strong>키워드 검색</strong><span class="desc">키워드로 영상·채널을 찾아 인플루언서를 발굴할 때</span><span class="go">바로 가기 →</span></button>
+        <button type="button" class="feature" data-go="comments"><span class="no">04</span><strong>댓글 분석</strong><span class="desc">영상 반응을 살피고 브랜드·제품 언급을 셀 때</span><span class="go">바로 가기 →</span></button>
+        <button type="button" class="feature" data-go="thumbs"><span class="no">05</span><strong>썸네일 다운로드</strong><span class="desc">레퍼런스용 썸네일을 고화질로 저장할 때</span><span class="go">바로 가기 →</span></button>
+      </div>
+
+      <div class="home-cols">
+        <div class="card">
+          <h3 class="home-h">시작하기</h3>
+          <ol class="steps home-steps">
+            <li id="stepKey">API 키 연결 <span id="stepKeyState"></span></li>
+            <li>위에서 기능을 고르고 채널·영상 링크나 검색어 입력</li>
+            <li>결과 표를 확인하고 CSV로 저장</li>
+          </ol>
+        </div>
+        <div class="card">
+          <div class="home-h-row">
+            <h3 class="home-h">최근 작업</h3>
+            <button type="button" id="recentClear" class="ghost small" hidden>전체 지우기</button>
+          </div>
+          <div id="recentList"></div>
+          <p class="muted">누르면 그때 입력한 내용이 채워진 채로 이동합니다. 기록은 이 브라우저에만 저장됩니다.</p>
+        </div>
+      </div>
+    </section>
+
     <!-- 채널 분석 -->
-    <section id="tab-channels" class="panel active">
+    <section id="tab-channels" class="panel">
       <div class="panel-head"><span class="kicker">(01) — CHANNELS</span><h2 class="title">채널별 비교</h2></div>
       <div class="card">
         <label class="field">

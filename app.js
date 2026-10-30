@@ -656,10 +656,10 @@ const COMPARE_MAX = 20;
 
 function compareChart(el, items, metrics, { label, link } = {}) {
   if (items.length < 2) { el.innerHTML = ''; return; }
-  let key = metrics[0].key;
+  let key = metrics[0].key, desc = true;
   const draw = () => {
     const m = metrics.find(x => x.key === key);
-    const rows = items.filter(r => r[key] != null).sort((a, b) => b[key] - a[key]);
+    const rows = items.filter(r => r[key] != null).sort((a, b) => (desc ? b[key] - a[key] : a[key] - b[key]));
     const shown = rows.slice(0, COMPARE_MAX);
     const max = Math.max(...shown.map(r => r[key]), 0) || 1;
     el.innerHTML = `
@@ -669,7 +669,8 @@ function compareChart(el, items, metrics, { label, link } = {}) {
           <label class="inline">지표
             <select class="compare-metric">${metrics.map(x => `<option value="${x.key}" ${x.key === key ? 'selected' : ''}>${esc(x.label)}</option>`).join('')}</select>
           </label>
-          ${rows.length > COMPARE_MAX ? `<span class="muted">상위 ${COMPARE_MAX}개만 표시</span>` : ''}
+          <button type="button" class="ghost small compare-order" title="정렬 순서 바꾸기">${desc ? '높은 순 ↓' : '낮은 순 ↑'}</button>
+          ${rows.length > COMPARE_MAX ? `<span class="muted">${desc ? '상위' : '하위'} ${COMPARE_MAX}개만 표시</span>` : ''}
         </div>
         <ol class="compare-bars">${shown.map(r => `
           <li>
@@ -679,6 +680,7 @@ function compareChart(el, items, metrics, { label, link } = {}) {
           </li>`).join('')}</ol>
       </div>`;
     $('.compare-metric', el).onchange = e => { key = e.target.value; draw(); };
+    $('.compare-order', el).onclick = () => { desc = !desc; draw(); };
   };
   draw();
 }
@@ -1767,7 +1769,6 @@ function initHome() {
   $('#tab-home .feature-grid').onclick = e => {
     const f = e.target.closest('[data-go]');
     if (!f) return;
-    resetPanel(f.dataset.go);
     switchTab(f.dataset.go);
     window.scrollTo({ top: 0 });
   };
@@ -1837,7 +1838,6 @@ function switchTab(name) {
 function init() {
   document.querySelectorAll('.tabs button').forEach(b => {
     b.onclick = () => {
-      resetPanel(b.dataset.tab);
       switchTab(b.dataset.tab);
       window.scrollTo({ top: 0 });
     };
@@ -1872,6 +1872,22 @@ function init() {
   initSettings();
   initKeyModal();
   initHome();
+  // 탭을 오가도 결과는 남겨 두고, 지우고 싶을 때만 "새로 시작"으로 그 탭을 처음 상태로 돌린다
+  Object.keys(PANEL_RESULTS).forEach(name => {
+    const head = $(`#tab-${name} .panel-head`);
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'ghost small restart';
+    btn.textContent = '↺ 새로 시작';
+    btn.title = '이 탭의 입력값과 결과를 모두 지웁니다';
+    btn.onclick = () => {
+      const hasResult = PANEL_RESULTS[name].some(sel => $(sel).innerHTML.trim());
+      if (hasResult && !confirm('이 탭의 입력값과 결과를 모두 지우고 새로 시작할까요?')) return;
+      resetPanel(name);
+      toast('새로 시작합니다.');
+    };
+    head.append(btn);
+  });
   const savedMotion = store('yt_motion');
   setMotion(savedMotion ? savedMotion === 'on' : !matchMedia('(prefers-reduced-motion: reduce)').matches);
   $('#motionToggle').onclick = () => setMotion(!motionOn());

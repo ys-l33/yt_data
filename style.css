@@ -147,8 +147,11 @@ main::after { bottom: 64px; }
 
 .panel-head { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 26px; padding-bottom: 14px; border-bottom: 1px solid var(--ink); }
 .panel-head .kicker { color: var(--ink-2); order: 2; }
-.panel-head .restart { order: 3; align-self: center; }
-.panel-head .title { flex: 1; }
+.restart {
+  margin-left: 10px; padding: 0 7px; border: 1px solid var(--rule-2); background: transparent; color: var(--ink);
+  font: 600 12px/1.1 var(--f-body); cursor: pointer; vertical-align: 1px; transition: background .15s, border-color .15s;
+}
+.restart:hover { background: var(--tint); border-color: var(--ink); }
 .panel-head .title { font-family: var(--f-title); font-size: 30px; font-weight: 700; letter-spacing: -.02em; margin: 0; line-height: 1.2; }
 
 /* ---------- 카드 & 폼 ---------- */

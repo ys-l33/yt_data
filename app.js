@@ -1874,13 +1874,15 @@ function init() {
   initHome();
   // 탭을 오가도 결과는 남겨 두고, 지우고 싶을 때만 "새로 시작"으로 그 탭을 처음 상태로 돌린다
   Object.keys(PANEL_RESULTS).forEach(name => {
-    const head = $(`#tab-${name} .panel-head`);
+    // 첫 입력칸 안내 문구 바로 옆에 둔다
+    const head = $(`#tab-${name} .card .field > span`);
     const btn = document.createElement('button');
     btn.type = 'button';
-    btn.className = 'ghost small restart';
+    btn.className = 'restart';
     btn.textContent = '↺ 새로 시작';
     btn.title = '이 탭의 입력값과 결과를 모두 지웁니다';
-    btn.onclick = () => {
+    btn.onclick = e => {
+      e.preventDefault(); // label 안에 있어 입력칸으로 포커스가 넘어가지 않게 한다
       const hasResult = PANEL_RESULTS[name].some(sel => $(sel).innerHTML.trim());
       if (hasResult && !confirm('이 탭의 입력값과 결과를 모두 지우고 새로 시작할까요?')) return;
       resetPanel(name);

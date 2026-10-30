@@ -148,8 +148,8 @@ main::after { bottom: 64px; }
 .panel-head { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 26px; padding-bottom: 14px; border-bottom: 1px solid var(--ink); }
 .panel-head .kicker { color: var(--ink-2); order: 2; }
 .restart {
-  margin-left: 10px; padding: 0 7px; border: 1px solid var(--rule-2); background: transparent; color: var(--ink);
-  font: 600 12px/1.1 var(--f-body); cursor: pointer; vertical-align: 1px; transition: background .15s, border-color .15s;
+  margin-left: 10px; padding: 1px 9px; border: 1px solid var(--rule-2); background: transparent; color: var(--ink);
+  font: 600 11.5px/1.4 var(--f-body); cursor: pointer; vertical-align: 0; transition: background .15s, border-color .15s;
 }
 .restart:hover { background: var(--tint); border-color: var(--ink); }
 .panel-head .title { font-family: var(--f-title); font-size: 30px; font-weight: 700; letter-spacing: -.02em; margin: 0; line-height: 1.2; }
@@ -162,7 +162,7 @@ main::after { bottom: 64px; }
 }
 .field { display: flex; flex-direction: column; gap: 7px; }
 .field > span { font-weight: 700; font-size: 13px; }
-.field em { font-style: normal; font-weight: 400; color: var(--ink-2); font-size: 12px; margin-left: 6px; }
+.field em { font-style: normal; font-weight: 400; color: var(--ink-2); font-size: 13px; line-height: 1.5; margin-left: 6px; }
 .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 16px; }
 .grid .wide { grid-column: 1 / -1; }
 .row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 18px; }

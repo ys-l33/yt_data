@@ -404,6 +404,23 @@ table.data th.del, table.data td.del { width: 1%; padding-left: 12px; padding-ri
 .empty-note { margin: 0 0 12px; padding: 18px; border: 1px dashed var(--rule-2); color: var(--ink-2); font-size: 13px; text-align: center; }
 @media (max-width: 720px) { .home-cols { grid-template-columns: 1fr; } }
 
+/* ---------- 검색해서 추가 ---------- */
+.picker { margin-top: 12px; padding: 12px 14px; border: 1px dashed var(--rule-2); background: var(--paper-hi); }
+.picker-row { display: flex; align-items: center; gap: 8px 10px; flex-wrap: wrap; }
+.picker-label { font-weight: 700; font-size: 13px; }
+.picker-q { flex: 1; min-width: 180px; padding: 7px 10px !important; }
+.picker-status:empty { display: none; }
+.picker-status { margin-top: 8px; }
+.picker-list { list-style: none; margin: 0; padding: 0; }
+.picker-list:not(:empty) { margin-top: 10px; border-top: 1px solid var(--rule); }
+.picker-list li { display: flex; align-items: center; gap: 12px; padding: 8px 2px; border-bottom: 1px solid var(--rule); }
+.picker-list img, .picker-list .ph { width: 64px; height: 36px; object-fit: cover; flex: none; background: var(--tint); }
+.picker-list .round { width: 36px; height: 36px; border-radius: 50%; }
+.picker-info { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.picker-title { font-weight: 600; text-decoration: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.picker-title:hover { text-decoration: underline; text-decoration-color: var(--green); }
+.picker-info .muted { font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
 /* ---------- 비교 막대 ---------- */
 .stats-caption { display: flex; align-items: center; gap: 8px; margin: -4px 0 10px; font-size: 13px; color: var(--ink-2); }
 .compare { margin-bottom: 20px; padding: 14px 16px 12px; border: 1px solid var(--rule); background: var(--paper-hi); }

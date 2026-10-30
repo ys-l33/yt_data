@@ -27,7 +27,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@0,300;0,500;1,300&family=Fraunces:ital,opsz,wght,SOFT,WONK@0,9..144,300..600,0..100,0..1;1,9..144,300..600,0..100,0..1&family=Gowun+Batang:wght@400;700&display=swap">
-  <link rel="stylesheet" href="style.css?v=20261029-49">
+  <link rel="stylesheet" href="style.css?v=20261029-51">
 </head>
 <body>
   <div class="ambient" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span><i></i><i></i><i></i><i></i><i></i><i></i></div>
@@ -94,6 +94,16 @@
           <span>채널 목록 <em>한 줄에 하나씩 · 채널 URL, @핸들, 채널 ID(UC…)</em></span>
           <textarea id="chInput" rows="4" placeholder="https://www.youtube.com/@channelname&#10;@handle&#10;UCxxxxxxxxxxxxxxxxxxxxxx"></textarea>
         </label>
+        <div class="picker" data-kind="channel">
+          <div class="picker-row">
+            <span class="picker-label">검색해서 추가</span>
+            <input type="text" class="picker-q" placeholder="예: 한국은행" aria-label="YouTube에서 채널 검색">
+            <button type="button" class="ghost small picker-go">검색</button>
+            <span class="muted picker-cost">검색 1회 약 100 유닛</span>
+          </div>
+          <div class="picker-status muted"></div>
+          <ul class="picker-list"></ul>
+        </div>
         <div class="row">
           <label class="inline">선정 기준
             <select id="chSort">
@@ -175,6 +185,16 @@
           <span>영상 목록 <em>한 줄에 하나씩 · 영상 URL, 쇼츠 URL, youtu.be 링크, 영상 ID</em></span>
           <textarea id="vInput" rows="5" placeholder="https://www.youtube.com/watch?v=xxxxxxxxxxx&#10;https://youtu.be/xxxxxxxxxxx&#10;https://www.youtube.com/shorts/xxxxxxxxxxx"></textarea>
         </label>
+        <div class="picker" data-kind="video">
+          <div class="picker-row">
+            <span class="picker-label">검색해서 추가</span>
+            <input type="text" class="picker-q" placeholder="예: 한국은행 금리" aria-label="YouTube에서 영상 검색">
+            <button type="button" class="ghost small picker-go">검색</button>
+            <span class="muted picker-cost">검색 1회 약 100 유닛</span>
+          </div>
+          <div class="picker-status muted"></div>
+          <ul class="picker-list"></ul>
+        </div>
         <div class="row">
           <span class="muted">여러 영상의 지표를 한 번에 모아 볼 때 유용합니다. 단일 영상 분석도 가능합니다.</span>
           <button id="vRun" class="primary">분석하기</button>

@@ -649,6 +649,64 @@ function bindChartTips(root, vids) {
   document.addEventListener('keydown', esc_);
 }
 
+/* ---------------- 검색해서 추가 (채널·영상 탭) ----------------
+ * YouTube 검색(100 유닛)으로 후보를 보여 주고, 고른 항목의 주소를 목록 칸 끝에 한 줄로 붙인다.
+ */
+function initPicker(root, { type, target, toUrl }) {
+  const q = $('.picker-q', root), go = $('.picker-go', root), list = $('.picker-list', root), status = $('.picker-status', root);
+  let items = [];
+  const listed = () => new Set($(target).value.split('\n').map(l => (type === 'channel' ? parseChannel(l).id : parseVideoId(l))).filter(Boolean));
+  const draw = () => {
+    const have = listed();
+    list.innerHTML = items.map((it, i) => `
+      <li>
+        ${it.thumb ? `<img src="${esc(it.thumb)}" alt="" loading="lazy" class="${type === 'channel' ? 'round' : ''}">` : `<span class="ph ${type === 'channel' ? 'round' : ''}"></span>`}
+        <div class="picker-info">
+          <a href="${esc(it.url)}" target="_blank" rel="noopener" class="picker-title">${esc(it.title)}</a>
+          <span class="muted">${esc(it.meta)}</span>
+        </div>
+        <button type="button" class="ghost small" data-add="${i}" ${have.has(it.id) ? 'disabled' : ''}>${have.has(it.id) ? '추가됨' : '+ 추가'}</button>
+      </li>`).join('');
+  };
+  const search = async () => {
+    const term = q.value.trim();
+    if (!term) return toast('검색어를 입력해 주세요.');
+    go.disabled = true;
+    status.textContent = '검색 중…';
+    try {
+      const d = await yt('search', { part: 'snippet', type, q: term, maxResults: 8, regionCode: 'KR', relevanceLanguage: 'ko' });
+      const ids = d.items.map(i => (type === 'channel' ? i.id.channelId : i.id.videoId)).filter(Boolean);
+      if (type === 'channel') {
+        const chs = await fetchChannels(ids);
+        items = chs.map(c => ({ id: c.id, url: c.url, title: c.title, thumb: c.thumb, meta: `${c.handle || ''} · 구독자 ${c.subs == null ? '비공개' : fmt.compact(c.subs)} · 영상 ${fmt.num(c.videoCount)}개` }));
+      } else {
+        const vids = await fetchVideos(ids);
+        items = vids.map(v => ({ id: v.id, url: v.url, title: v.title, thumb: v.thumb, meta: `${v.channelTitle} · ${fmt.date(v.publishedAt)} · 조회수 ${fmt.compact(v.views)}` }));
+      }
+      status.textContent = items.length ? '' : '검색 결과가 없습니다.';
+      draw();
+    } catch (e) {
+      status.textContent = e.message;
+      if (e.reason === 'noKey') openKeyModal();
+    } finally {
+      go.disabled = false;
+    }
+  };
+  go.onclick = search;
+  q.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); search(); } };
+  list.onclick = e => {
+    const btn = e.target.closest('[data-add]');
+    if (!btn) return;
+    const it = items[+btn.dataset.add];
+    const box = $(target);
+    box.value = (box.value.trim() ? box.value.replace(/\s*$/, '\n') : '') + toUrl(it.id);
+    draw();
+    toast(`“${it.title}”을(를) 목록에 추가했습니다.`);
+  };
+  $(target).addEventListener('input', () => items.length && draw());
+  return { reset() { items = []; q.value = ''; status.textContent = ''; list.innerHTML = ''; } };
+}
+
 /* ---------------- 비교 막대 차트 (채널·영상 공용) ----------------
  * 항목이 2개 이상일 때만 표 위에 그린다. 지표 하나를 골라 큰 순서로 가로 막대에 값과 함께 보여 준다.
  */
@@ -1816,6 +1874,7 @@ function resetPanel(name) {
   });
   panel.querySelectorAll('.status-line').forEach(el => setStatus('#' + el.id, ''));
   PANEL_RESULTS[name].forEach(sel => { $(sel).innerHTML = ''; });
+  window.dispatchEvent(new CustomEvent('panelreset', { detail: name }));
   if (name === 'channels') {
     channelResults = [];
     $('#chMore').hidden = true;
@@ -1872,6 +1931,11 @@ function init() {
   initSettings();
   initKeyModal();
   initHome();
+  const pickers = {
+    channels: initPicker($('#tab-channels .picker'), { type: 'channel', target: '#chInput', toUrl: id => `https://www.youtube.com/channel/${id}` }),
+    videos: initPicker($('#tab-videos .picker'), { type: 'video', target: '#vInput', toUrl: id => `https://www.youtube.com/watch?v=${id}` }),
+  };
+  window.addEventListener('panelreset', e => pickers[e.detail]?.reset());
   // 탭을 오가도 결과는 남겨 두고, 지우고 싶을 때만 "새로 시작"으로 그 탭을 처음 상태로 돌린다
   Object.keys(PANEL_RESULTS).forEach(name => {
     // 첫 입력칸 안내 문구 바로 옆에 둔다

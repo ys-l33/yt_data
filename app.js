@@ -1171,9 +1171,12 @@ function renderSearch() {
         건 <button type="button" id="sMore" class="ghost small" ${exhausted ? 'disabled' : ''}>더 검색하기</button>
       </label>
       <span class="muted">${exhausted ? '더 가져올 결과가 없습니다' : '이미 받은 결과와 삭제한 결과는 다시 나오지 않습니다 · 검색 1회 100 유닛'}</span>
-      <button type="button" id="sUndo" class="ghost small undo" ${s.undo.length ? '' : 'disabled'}>↶ 삭제 취소${s.undo.length ? ` (${s.undo.length})` : ''}</button>
     </div>
     ${keywordCompare(s)}
+    <div class="undo-bar">
+      <button type="button" id="sUndo" class="ghost small" ${s.undo.length ? '' : 'disabled'}>↶ 삭제 취소${s.undo.length ? ` (${s.undo.length})` : ''}</button>
+      <span class="muted">${s.undo.length ? '마지막으로 삭제한 결과부터 되돌립니다' : '표 왼쪽 × 버튼으로 결과를 삭제할 수 있습니다'}</span>
+    </div>
     <div class="stable"></div>`;
   const tableEl = $('.stable', body);
   const table = renderTable(tableEl, [deleteCol, ...cols], list, s.sort);

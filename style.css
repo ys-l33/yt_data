@@ -349,7 +349,7 @@ td.text { min-width: 320px; max-width: 640px; white-space: pre-wrap; word-break:
 .legend .ln.med { border-top: 2px dotted var(--ink-2); }
 
 .more-bar { display: flex; align-items: center; gap: 8px 14px; flex-wrap: wrap; margin-bottom: 12px; }
-.more-bar .undo { margin-left: auto; }
+.undo-bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
 table.data th.del, table.data td.del { width: 1%; padding-left: 12px; padding-right: 4px; }
 .row-del {
   width: 26px; height: 26px; border: 1px solid var(--rule-2); background: transparent; color: var(--ink-2);

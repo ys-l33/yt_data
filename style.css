@@ -399,6 +399,28 @@ table.data th.del, table.data td.del { width: 1%; padding-left: 12px; padding-ri
 .empty-note { margin: 0 0 12px; padding: 18px; border: 1px dashed var(--rule-2); color: var(--ink-2); font-size: 13px; text-align: center; }
 @media (max-width: 720px) { .home-cols { grid-template-columns: 1fr; } }
 
+/* ---------- 비교 막대 ---------- */
+.stats-caption { display: flex; align-items: center; gap: 8px; margin: -4px 0 10px; font-size: 13px; color: var(--ink-2); }
+.compare { margin-bottom: 20px; padding: 14px 16px 12px; border: 1px solid var(--rule); background: var(--paper-hi); }
+.compare-head { display: flex; align-items: center; gap: 8px 16px; flex-wrap: wrap; margin-bottom: 12px; }
+.compare-head strong { font-family: var(--f-title); font-size: 15px; }
+.compare-head select { padding: 5px 9px; }
+.compare-bars { list-style: none; margin: 0; padding: 0; display: grid; gap: 7px; }
+.compare-bars li { display: grid; grid-template-columns: minmax(120px, 240px) 1fr auto; align-items: center; gap: 12px; }
+.compare-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; text-decoration: none; font-size: 13px; }
+.compare-name:hover { text-decoration: underline; text-decoration-color: var(--green); }
+.compare-track { height: 14px; background: var(--tint); }
+.compare-bar { display: block; height: 100%; background: var(--c-long); border-radius: 0 3px 3px 0; transition: width .4s ease; }
+.compare-val { min-width: 76px; text-align: right; font-variant-numeric: tabular-nums; font-size: 13px; font-weight: 600; }
+.kw-table td, .kw-table th { text-align: left; }
+.kw-table .num { text-align: right; }
+.kw-bar { display: inline-block; vertical-align: middle; width: 140px; height: 12px; background: var(--tint); margin-right: 10px; }
+@media (max-width: 720px) {
+  .compare-bars li { grid-template-columns: 1fr auto; }
+  .compare-track { grid-column: 1 / -1; grid-row: 2; }
+  .kw-bar { width: 70px; }
+}
+
 .chips { display: flex; flex-wrap: wrap; gap: 6px; }
 .chip { padding: 3px 11px; border: 1px solid var(--rule-2); border-radius: 999px; font-size: 13px; background: var(--paper-hi); }
 button.chip { font: inherit; font-size: 13px; color: var(--ink); cursor: pointer; transition: background .15s, border-color .15s; }

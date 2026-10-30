@@ -649,6 +649,59 @@ function bindChartTips(root, vids) {
   document.addEventListener('keydown', esc_);
 }
 
+/* ---------------- 비교 막대 차트 (채널·영상 공용) ----------------
+ * 항목이 2개 이상일 때만 표 위에 그린다. 지표 하나를 골라 큰 순서로 가로 막대에 값과 함께 보여 준다.
+ */
+const COMPARE_MAX = 20;
+
+function compareChart(el, items, metrics, { label, link } = {}) {
+  if (items.length < 2) { el.innerHTML = ''; return; }
+  let key = metrics[0].key;
+  const draw = () => {
+    const m = metrics.find(x => x.key === key);
+    const rows = items.filter(r => r[key] != null).sort((a, b) => b[key] - a[key]);
+    const shown = rows.slice(0, COMPARE_MAX);
+    const max = Math.max(...shown.map(r => r[key]), 0) || 1;
+    el.innerHTML = `
+      <div class="compare">
+        <div class="compare-head">
+          <strong>한눈에 비교</strong>
+          <label class="inline">지표
+            <select class="compare-metric">${metrics.map(x => `<option value="${x.key}" ${x.key === key ? 'selected' : ''}>${esc(x.label)}</option>`).join('')}</select>
+          </label>
+          ${rows.length > COMPARE_MAX ? `<span class="muted">상위 ${COMPARE_MAX}개만 표시</span>` : ''}
+        </div>
+        <ol class="compare-bars">${shown.map(r => `
+          <li>
+            <a class="compare-name" href="${esc(link(r))}" target="_blank" rel="noopener" title="${esc(label(r))}">${esc(label(r))}</a>
+            <span class="compare-track"><span class="compare-bar" style="width:${Math.max(1, (r[key] / max) * 100).toFixed(1)}%"></span></span>
+            <span class="compare-val">${fmt[m.type](r[key])}</span>
+          </li>`).join('')}</ol>
+      </div>`;
+    $('.compare-metric', el).onchange = e => { key = e.target.value; draw(); };
+  };
+  draw();
+}
+
+const CHANNEL_COMPARE = [
+  { key: 'avgViews', label: '평균 조회수', type: 'num' },
+  { key: 'medianViews', label: '중앙값 조회수', type: 'num' },
+  { key: 'subs', label: '구독자', type: 'num' },
+  { key: 'er', label: '참여율', type: 'pct' },
+  { key: 'reach', label: '구독자 대비 조회율', type: 'pct' },
+  { key: 'avgLikes', label: '평균 좋아요', type: 'num' },
+  { key: 'avgComments', label: '평균 댓글', type: 'num' },
+  { key: 'perWeek', label: '주간 업로드', type: 'dec' },
+];
+const VIDEO_COMPARE = [
+  { key: 'views', label: '조회수', type: 'num' },
+  { key: 'likes', label: '좋아요', type: 'num' },
+  { key: 'comments', label: '댓글', type: 'num' },
+  { key: 'er', label: '참여율', type: 'pct' },
+  { key: 'viewsPerDay', label: '일평균 조회수', type: 'num' },
+  { key: 'reach', label: '구독자 대비 조회율', type: 'pct' },
+];
+
 /* ---------------- 탭: 채널 분석 ---------------- */
 
 // "상세 설정" 옆에 지금 적용될 범위를 짧게 보여 준다. 기간 기준을 고르면 비어 있는 날짜는 최근 30일로 채운다.
@@ -749,7 +802,9 @@ async function runChannels() {
       { label: '전체 영상 CSV', run: () => downloadCSV('채널별_영상', [{ key: 'channelTitle', label: '채널', type: 'text' }, ...videoCols(false), ...videoCsvExtra], channelResults.flatMap(c => c.videos)) },
     ],
   });
-  renderTable(body, channelCols, results, {
+  body.innerHTML = '<div class="cmp"></div><div class="ctbl"></div>';
+  compareChart($('.cmp', body), results, CHANNEL_COMPARE, { label: r => r.title, link: r => r.url });
+  renderTable($('.ctbl', body), channelCols, results, {
     onRowClick: (r, tr) => {
       tr.parentElement.querySelectorAll('tr.selected').forEach(x => x.classList.remove('selected'));
       tr.classList.add('selected');
@@ -835,14 +890,24 @@ async function runVideos() {
     sub: [missing ? `비공개·삭제 등으로 ${missing}개를 불러오지 못했습니다` : '', bad.length ? `인식하지 못한 줄 ${bad.length}개` : ''].filter(Boolean).join(' · '),
     actions: [{ label: 'CSV 다운로드', run: () => downloadCSV('영상분석', [...cols, ...videoCsvExtra], videoResults) }],
   });
-  body.innerHTML = statCards([
-    ['총 조회수', fmt.compact(tv), fmt.num(tv)],
-    ['총 좋아요', fmt.compact(tl), fmt.num(tl)],
-    ['총 댓글', fmt.compact(tc), fmt.num(tc)],
-    ['평균 조회수', fmt.compact(mean(vids.map(v => v.views))), `중앙값 ${fmt.compact(median(vids.map(v => v.views)))}`],
-    ['전체 참여율', fmt.pct(tv ? (tl + tc) / tv : null), '(좋아요+댓글) ÷ 조회수'],
-    ['평균 구독자 대비 조회율', fmt.pct(mean(vids.filter(v => v.reach != null).map(v => v.reach)))],
-  ]) + '<div class="vtable"></div>';
+  const many = vids.length > 1;
+  body.innerHTML = (many ? `<p class="stats-caption"><span class="tag">합산</span> 입력한 영상 ${vids.length}개를 모두 더하거나 평균 낸 값입니다. 영상별 수치는 아래 표에서 볼 수 있습니다.</p>` : '')
+    + statCards(many ? [
+      ['조회수 합계', fmt.compact(tv), fmt.num(tv)],
+      ['좋아요 합계', fmt.compact(tl), fmt.num(tl)],
+      ['댓글 합계', fmt.compact(tc), fmt.num(tc)],
+      ['영상당 평균 조회수', fmt.compact(mean(vids.map(v => v.views))), `중앙값 ${fmt.compact(median(vids.map(v => v.views)))}`],
+      ['전체 참여율', fmt.pct(tv ? (tl + tc) / tv : null), `${vids.length}개 영상 (좋아요+댓글) ÷ 조회수`],
+      ['평균 구독자 대비 조회율', fmt.pct(mean(vids.filter(v => v.reach != null).map(v => v.reach))), '영상별 값의 평균'],
+    ] : [
+      ['조회수', fmt.compact(tv), fmt.num(tv)],
+      ['좋아요', fmt.compact(tl), fmt.num(tl)],
+      ['댓글', fmt.compact(tc), fmt.num(tc)],
+      ['참여율', fmt.pct(tv ? (tl + tc) / tv : null), '(좋아요+댓글) ÷ 조회수'],
+      ['일평균 조회수', fmt.num(vids[0]?.viewsPerDay)],
+      ['구독자 대비 조회율', fmt.pct(vids[0]?.reach)],
+    ]) + '<div class="cmp"></div><div class="vtable"></div>';
+  compareChart($('.cmp', body), vids, VIDEO_COMPARE, { label: v => v.title, link: v => v.url });
   renderTable($('.vtable', body), cols, vids);
   if (quotaMsg) quotaNotice('#vStatus', quotaMsg);
   if (vids.length) addRecent('videos', vids.length > 1 ? `${vids[0].title} 외 ${vids.length - 1}개` : vids[0].title);
@@ -939,7 +1004,7 @@ async function runSearch() {
   }
 
   const session = {
-    q, type, kind,
+    q, type, kind, terms: q.split(/[,|]/).map(t => t.trim()).filter(Boolean),
     params: {
       part: 'snippet', type, q: apiQuery,
       order,
@@ -1038,6 +1103,34 @@ const deleteCol = {
   html: r => `<button type="button" class="row-del" data-del="${esc(r.id)}" title="목록에서 삭제" aria-label="목록에서 삭제">×</button>`,
 };
 
+// 쉼표로 여러 키워드를 검색했을 때만, 키워드마다 그 말이 들어간 결과끼리 묶어 비교한다
+function keywordCompare(s) {
+  if (s.terms.length < 2) return '';
+  const isVideo = s.type === 'video';
+  const rows = s.terms.map(term => {
+    const t = term.toLowerCase();
+    const hit = s.results.filter(r => `${r.title} ${r.description || ''} ${r.tags || ''} ${r.handle || ''}`.toLowerCase().includes(t));
+    const views = hit.map(r => (isVideo ? r.views : r.subs)).filter(v => v != null);
+    const er = isVideo ? (() => { const tv = sum(hit.map(r => r.views)); return tv ? sum(hit.map(r => (r.likes || 0) + (r.comments || 0))) / tv : null; })() : null;
+    return { term, n: hit.length, avg: mean(views), med: median(views), er };
+  });
+  const maxAvg = Math.max(...rows.map(r => r.avg || 0), 1);
+  return `
+    <div class="compare kw-compare">
+      <div class="compare-head"><strong>키워드별 비교</strong><span class="muted">제목·설명·태그에 그 키워드가 들어간 결과끼리 묶은 값 (한 결과가 여러 키워드에 들어갈 수 있음)</span></div>
+      <table class="plain kw-table">
+        <thead><tr><th>키워드</th><th class="num">결과 수</th><th>${isVideo ? '평균 조회수' : '평균 구독자'}</th><th class="num">${isVideo ? '중앙값 조회수' : '중앙값 구독자'}</th>${isVideo ? '<th class="num">참여율</th>' : ''}</tr></thead>
+        <tbody>${rows.map(r => `<tr>
+          <td><strong>${esc(r.term)}</strong></td>
+          <td class="num">${fmt.num(r.n)}</td>
+          <td><span class="kw-bar"><span class="compare-bar" style="width:${r.avg ? Math.max(2, (r.avg / maxAvg) * 100).toFixed(1) : 0}%"></span></span><span class="compare-val">${fmt.num(r.avg)}</span></td>
+          <td class="num">${fmt.num(r.med)}</td>
+          ${isVideo ? `<td class="num">${fmt.pct(r.er)}</td>` : ''}
+        </tr>`).join('')}</tbody>
+      </table>
+    </div>`;
+}
+
 function renderSearch() {
   const s = searchSession;
   const list = s.results;
@@ -1080,6 +1173,7 @@ function renderSearch() {
       <span class="muted">${exhausted ? '더 가져올 결과가 없습니다' : '이미 받은 결과와 삭제한 결과는 다시 나오지 않습니다 · 검색 1회 100 유닛'}</span>
       <button type="button" id="sUndo" class="ghost small undo" ${s.undo.length ? '' : 'disabled'}>↶ 삭제 취소${s.undo.length ? ` (${s.undo.length})` : ''}</button>
     </div>
+    ${keywordCompare(s)}
     <div class="stable"></div>`;
   const tableEl = $('.stable', body);
   const table = renderTable(tableEl, [deleteCol, ...cols], list, s.sort);

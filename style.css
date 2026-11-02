@@ -418,6 +418,8 @@ table.data th.del, table.data td.del { width: 1%; padding-left: 12px; padding-ri
 
 /* ---------- 검색해서 추가 ---------- */
 .picker { margin-top: 12px; padding: 12px 14px; border: 1px dashed var(--rule-2); background: var(--paper-hi); }
+/* 댓글 분석은 그리드 간격(16px) 안에 있어 다른 탭과 같은 12px 간격이 되도록 줄인다 */
+.grid > .picker { margin-top: -4px; }
 .picker-row { display: flex; align-items: center; gap: 8px 10px; flex-wrap: wrap; }
 .picker-label { font-weight: 700; font-size: 13px; }
 .picker-q { flex: 1; min-width: 180px; padding: 7px 10px !important; }

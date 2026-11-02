@@ -910,9 +910,9 @@ async function runChannels() {
   const body = block($('#chResult'), {
     title: `채널 비교 (${results.length}개)`,
     sub: [
-      planText(plan),
+      plan.on ? planText(plan) : '채널 자체 지표만 비교한 결과입니다. 참여율, 조회수 편차 등 채널별 영상 단위 지표는 “상세 설정”에서 켤 수 있습니다.',
       short ? `영상이 적어 ${plan.n}개보다 적게 분석된 채널이 있습니다` : '',
-      plan.on ? '열 제목을 누르면 정렬, 행을 누르면 영상별 상세' : '참여율 등 영상 단위 지표는 “상세 설정”에서 켤 수 있습니다',
+      plan.on ? '열 제목을 누르면 정렬, 행을 누르면 영상별 상세' : '',
       failed.length ? `찾지 못한 채널: ${esc(failed.join(', '))}` : '',
     ].filter(Boolean).join(' · '),
     actions: plan.on ? [

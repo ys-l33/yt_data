@@ -500,10 +500,10 @@ const statCards = items => `<div class="stats">${items.map(([label, value, sub, 
 
 const CV_INFO = `<b>조회수 편차(CV) 해석</b>
   <table class="info-table">
-    <tr><td>0.5 미만</td><td>매우 안정적, 영상마다 조회수가 비슷</td></tr>
-    <tr><td>0.5 ~ 1.0</td><td>안정적인 편, 대부분 채널이 이 구간</td></tr>
-    <tr><td>1.0 ~ 2.0</td><td>들쭉날쭉, 영상별 성과 차이가 큼</td></tr>
-    <tr><td>2.0 이상</td><td>일부 대박 영상이 평균을 끌어올린 상태, 중앙값 조회수 참고 권장</td></tr>
+    <tr><td>0.5 미만</td><td>매우 안정적 (영상 간 조회수 편차 미미)</td></tr>
+    <tr><td>0.5 ~ 1.0</td><td>안정적 (일반적인 채널 분포 구간)</td></tr>
+    <tr><td>1.0 ~ 2.0</td><td>변동성 높음 (영상별 성과 편차 큼)</td></tr>
+    <tr><td>2.0 이상</td><td>변동성 매우 높음 (소수 흥행작에 의한 평균 왜곡 발생, 중앙값 참고 권장)</td></tr>
   </table>
   <small>(※ 쇼츠와 일반 영상이 섞이거나 분석 영상이 10개 미만이면 값이 커질 수 있음)</small>`;
 

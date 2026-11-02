@@ -398,7 +398,8 @@ table.data th.del, table.data td.del { width: 1%; padding-left: 12px; padding-ri
 .feature strong { font-family: var(--f-title); font-size: 19px; }
 .feature .desc { font-size: 13px; color: var(--ink-2); line-height: 1.55; word-break: keep-all; }
 .feature .go { margin-top: auto; padding-top: 6px; font-size: 13px; font-weight: 600; }
-.home-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; }
+.home-cols { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 22px; }
+.home-cols > * { min-width: 0; }
 .home-cols .card { margin-bottom: 0; }
 .home-h { font-family: var(--f-title); font-size: 18px; margin-bottom: 14px; }
 .home-h-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }

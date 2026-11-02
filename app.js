@@ -879,9 +879,9 @@ function syncChScope() {
   $('#chScopeSummary').textContent = planText(channelPlan());
 }
 
-// 분석 영상 유형이 "쇼츠만"일 때만 쇼츠 판별 기준 ⓘ 버튼을 보인다
+// 분석 영상 유형이 "전체"나 "쇼츠만"일 때 쇼츠 판별 기준 ⓘ 버튼을 보인다
 function syncChTypeInfo() {
-  const show = $('#chType').value === 'short';
+  const show = $('#chType').value !== 'long';
   $('#chTypeInfoWrap').hidden = !show;
   if (!show) toggleInfo('chTypePop', false);
 }

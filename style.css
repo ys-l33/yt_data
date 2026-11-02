@@ -276,7 +276,7 @@ button:focus-visible, .tabs button:focus-visible { outline: 2px solid var(--gree
 .block-head h3 { font-family: var(--f-title); font-size: 21px; letter-spacing: -.01em; }
 .block-head p { margin: 4px 0 0; }
 .block-head { margin-bottom: 14px; }
-.block-actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; margin-bottom: 10px; }
+.block-actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-start; margin-bottom: 10px; }
 
 .stats { display: grid; grid-template-columns: repeat(auto-fill, minmax(165px, 1fr)); gap: 0; margin-bottom: 22px; border-top: 1px solid var(--rule); border-left: 1px solid var(--rule); }
 .stat { padding: 14px 16px 16px; border-right: 1px solid var(--rule); border-bottom: 1px solid var(--rule); transition: background .2s; }

@@ -677,7 +677,7 @@ function bindChartTips(root, vids) {
 /* ---------------- 검색해서 추가 (채널·영상 탭) ----------------
  * YouTube 검색(100 유닛)으로 후보를 보여 주고, 고른 항목의 주소를 목록 칸 끝에 한 줄로 붙인다.
  */
-function initPicker(root, { type, target, toUrl }) {
+function initPicker(root, { type, target, toUrl, single = false }) {
   const PAGE = 8;
   const q = $('.picker-q', root), go = $('.picker-go', root), list = $('.picker-list', root), status = $('.picker-status', root);
   const more = document.createElement('button');
@@ -697,7 +697,7 @@ function initPicker(root, { type, target, toUrl }) {
           <a href="${esc(it.url)}" target="_blank" rel="noopener" class="picker-title">${esc(it.title)}</a>
           <span class="muted">${esc(it.meta)}</span>
         </div>
-        <button type="button" class="ghost small" data-add="${i}" ${have.has(it.id) ? 'disabled' : ''}>${have.has(it.id) ? '추가됨' : '+ 추가'}</button>
+        <button type="button" class="ghost small" data-add="${i}" ${have.has(it.id) ? 'disabled' : ''}>${have.has(it.id) ? (single ? '선택됨' : '추가됨') : (single ? '선택' : '+ 추가')}</button>
       </li>`).join('');
     const buffered = shown < items.length;
     more.hidden = !(buffered || pageToken);
@@ -741,9 +741,10 @@ function initPicker(root, { type, target, toUrl }) {
     if (!btn) return;
     const it = items[+btn.dataset.add];
     const box = $(target);
-    box.value = (box.value.trim() ? box.value.replace(/\s*$/, '\n') : '') + toUrl(it.id);
+    // 한 개만 받는 칸(댓글 분석)은 덮어쓰고, 목록 칸은 끝에 한 줄로 붙인다
+    box.value = single ? toUrl(it.id) : (box.value.trim() ? box.value.replace(/\s*$/, '\n') : '') + toUrl(it.id);
     draw();
-    toast(`“${it.title}”을(를) 목록에 추가했습니다.`);
+    toast(single ? `“${it.title}”을(를) 선택했습니다.` : `“${it.title}”을(를) 목록에 추가했습니다.`);
   };
   $(target).addEventListener('input', () => items.length && draw());
   return { reset() { items = []; shown = 0; pageToken = null; term = ''; q.value = ''; status.textContent = ''; list.innerHTML = ''; more.hidden = true; } };
@@ -2012,6 +2013,8 @@ function init() {
   const pickers = {
     channels: initPicker($('#tab-channels .picker'), { type: 'channel', target: '#chInput', toUrl: id => `https://www.youtube.com/channel/${id}` }),
     videos: initPicker($('#tab-videos .picker'), { type: 'video', target: '#vInput', toUrl: id => `https://www.youtube.com/watch?v=${id}` }),
+    thumbs: initPicker($('#tab-thumbs .picker'), { type: 'video', target: '#tInput', toUrl: id => `https://www.youtube.com/watch?v=${id}` }),
+    comments: initPicker($('#tab-comments .picker'), { type: 'video', target: '#cVideo', toUrl: id => `https://www.youtube.com/watch?v=${id}`, single: true }),
   };
   window.addEventListener('panelreset', e => pickers[e.detail]?.reset());
   // 탭을 오가도 결과는 남겨 두고, 지우고 싶을 때만 "새로 시작"으로 그 탭을 처음 상태로 돌린다

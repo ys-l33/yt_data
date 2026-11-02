@@ -27,7 +27,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@0,300;0,500;1,300&family=Fraunces:ital,opsz,wght,SOFT,WONK@0,9..144,300..600,0..100,0..1;1,9..144,300..600,0..100,0..1&family=Gowun+Batang:wght@400;700&display=swap">
-  <link rel="stylesheet" href="style.css?v=20261029-64">
+  <link rel="stylesheet" href="style.css?v=20261029-65">
 </head>
 <body>
   <div class="ambient" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span><i></i><i></i><i></i><i></i><i></i><i></i></div>
@@ -298,6 +298,16 @@
             <span>영상 URL 또는 ID</span>
             <input id="cVideo" type="text" placeholder="https://www.youtube.com/watch?v=xxxxxxxxxxx">
           </label>
+          <div class="picker wide" data-kind="video">
+            <div class="picker-row">
+              <span class="picker-label">검색해서 선택</span>
+              <input type="text" class="picker-q" placeholder="예: 한국은행 디지털화폐" aria-label="YouTube에서 영상 검색">
+              <button type="button" class="ghost small picker-go">검색</button>
+              <span class="muted picker-cost">검색 1회 약 100 유닛</span>
+            </div>
+            <div class="picker-status muted"></div>
+            <ul class="picker-list"></ul>
+          </div>
           <label class="field">
             <span>정렬</span>
             <select id="cOrder"><option value="relevance">인기순</option><option value="time">최신순</option></select>
@@ -327,6 +337,16 @@
           <span>영상 목록 <em>한 줄에 하나씩 · 영상 URL, 쇼츠 URL, youtu.be 링크, 영상 ID</em></span>
           <textarea id="tInput" rows="4" placeholder="https://www.youtube.com/watch?v=xxxxxxxxxxx&#10;https://youtu.be/xxxxxxxxxxx"></textarea>
         </label>
+        <div class="picker" data-kind="video">
+          <div class="picker-row">
+            <span class="picker-label">검색해서 추가</span>
+            <input type="text" class="picker-q" placeholder="예: 한국은행 디지털화폐" aria-label="YouTube에서 영상 검색">
+            <button type="button" class="ghost small picker-go">검색</button>
+            <span class="muted picker-cost">검색 1회 약 100 유닛</span>
+          </div>
+          <div class="picker-status muted"></div>
+          <ul class="picker-list"></ul>
+        </div>
         <div class="row">
           <button id="tRun" class="primary">불러오기</button>
         </div>
@@ -403,6 +423,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=20261029-25"></script>
+  <script src="app.js?v=20261029-65"></script>
 </body>
 </html>

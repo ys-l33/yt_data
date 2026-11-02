@@ -489,8 +489,23 @@ function block(el, { title, sub = '', actions = [] }) {
   return $('.block-body', el);
 }
 
-const statCards = items => `<div class="stats">${items.map(([label, value, sub]) => `
-  <div class="stat"><div class="label">${esc(label)}</div><div class="value">${esc(value)}</div>${sub ? `<div class="sub">${esc(sub)}</div>` : ''}</div>`).join('')}</div>`;
+// 네 번째 값(info)을 주면 라벨 옆에 ⓘ 버튼과 안내 창을 단다 (info는 신뢰할 수 있는 고정 HTML만)
+let statInfoSeq = 0;
+const statCards = items => `<div class="stats">${items.map(([label, value, sub, info]) => {
+  const id = info ? `statInfo${++statInfoSeq}` : '';
+  const btn = info ? `<span class="info-wrap"><button type="button" class="info-btn info-sm" data-pop="${id}" aria-label="${esc(label)} 해석" aria-expanded="false" aria-controls="${id}">i</button><div id="${id}" class="info-pop align-left" role="dialog" aria-label="${esc(label)} 해석" hidden>${info}</div></span>` : '';
+  return `
+  <div class="stat"><div class="label">${esc(label)}${btn}</div><div class="value">${esc(value)}</div>${sub ? `<div class="sub">${esc(sub)}</div>` : ''}</div>`;
+}).join('')}</div>`;
+
+const CV_INFO = `<b>조회수 편차(CV) 해석</b>
+  <table class="info-table">
+    <tr><td>0.5 미만</td><td>매우 안정적, 영상마다 조회수가 비슷</td></tr>
+    <tr><td>0.5 ~ 1.0</td><td>안정적인 편, 대부분 채널이 이 구간</td></tr>
+    <tr><td>1.0 ~ 2.0</td><td>들쭉날쭉, 영상별 성과 차이가 큼</td></tr>
+    <tr><td>2.0 이상</td><td>일부 대박 영상이 평균을 끌어올린 상태, 중앙값 조회수 참고 권장</td></tr>
+  </table>
+  <small>(※ 쇼츠와 일반 영상이 섞이거나 분석 영상이 10개 미만이면 값이 커질 수 있음)</small>`;
 
 /* ---------------- 공통 컬럼 ---------------- */
 
@@ -951,7 +966,7 @@ function showChannelDetail(c) {
     ['평균 좋아요 / 댓글', `${fmt.compact(c.avgLikes)} / ${fmt.compact(c.avgComments)}`],
     ['주간 업로드', fmt.dec(c.perWeek) + '개', `최근 ${fmt.date(c.lastUpload)}`],
     ['히트 영상', `${c.hits ?? '-'}개`, '중앙값의 2배 이상'],
-    ['조회수 편차(CV)', c.cv == null ? '-' : c.cv.toFixed(2), '낮을수록 성과가 안정적'],
+    ['조회수 편차(CV)', c.cv == null ? '-' : c.cv.toFixed(2), '낮을수록 성과가 안정적', CV_INFO],
     ['쇼츠 비중', fmt.pct(c.shortsRatio), `평균 길이 ${fmt.dur(Math.round(c.avgDuration || 0))}`],
     ['총 조회수', fmt.compact(c.totalViews), `영상 ${fmt.num(c.videoCount)}개`],
   ]) + viewsChart(c.videos) + '<div class="vtable"></div>';
@@ -1982,10 +1997,12 @@ function init() {
   $('#cKeywords').oninput = () => renderComments();
   ['#sType', '#sCount', '#sPeriod'].forEach(s => { $(s).onchange = updateSearchCost; });
   $('#sCountCustom').oninput = updateSearchCost;
-  document.querySelectorAll('.info-btn[data-pop]').forEach(btn => {
-    btn.onclick = e => { e.preventDefault(); e.stopPropagation(); toggleInfo(btn.dataset.pop); };
+  // 결과 화면에 나중에 그려지는 ⓘ 버튼도 동작하도록 문서 전체에서 받는다
+  document.addEventListener('click', e => {
+    const btn = e.target.closest('.info-btn[data-pop]');
+    if (btn) { e.preventDefault(); toggleInfo(btn.dataset.pop); return; }
+    if (!e.target.closest('.info-pop')) closeInfos();
   });
-  document.addEventListener('click', e => { if (!e.target.closest('.info-pop')) closeInfos(); });
   document.addEventListener('keydown', e => { if (e.key === 'Escape') closeInfos(); });
   $('#sCountCustom').onkeydown = e => { if (e.key === 'Enter') $('#sRun').click(); };
   updateSearchCost();

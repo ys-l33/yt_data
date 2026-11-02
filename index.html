@@ -27,7 +27,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@0,300;0,500;1,300&family=Fraunces:ital,opsz,wght,SOFT,WONK@0,9..144,300..600,0..100,0..1;1,9..144,300..600,0..100,0..1&family=Gowun+Batang:wght@400;700&display=swap">
-  <link rel="stylesheet" href="style.css?v=20261029-55">
+  <link rel="stylesheet" href="style.css?v=20261029-56">
 </head>
 <body>
   <div class="ambient" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span><i></i><i></i><i></i><i></i><i></i><i></i></div>
@@ -105,53 +105,58 @@
           <ul class="picker-list"></ul>
         </div>
         <div class="row">
-          <label class="inline">선정 기준
-            <select id="chSort">
-              <option value="recent">최근 업로드순</option>
-              <option value="views">조회수 높은 순</option>
-              <option value="likes">좋아요 많은 순</option>
-              <option value="comments">댓글 많은 순</option>
-            </select>
-          </label>
-          <label class="inline">
-            <select id="chN" aria-label="분석할 영상 수">
-              <option>10</option><option selected>30</option><option>50</option><option>100</option>
-            </select> 개
-          </label>
-          <label class="inline">분석 영상 유형
-            <select id="chType">
-              <option value="all">전체</option>
-              <option value="long">일반 영상만</option>
-              <option value="short">쇼츠만</option>
-            </select>
-          </label>
-          <span class="info-wrap" id="chTypeInfoWrap" hidden>
-            <button type="button" class="info-btn" data-pop="chTypePop" aria-label="쇼츠 판별 기준" aria-expanded="false" aria-controls="chTypePop">i</button>
-            <div id="chTypePop" class="info-pop align-left" role="dialog" aria-label="쇼츠 판별 기준" hidden>
-              YouTube 기준에 따라 세로 또는 정사각형이면서 3분 이하인 영상을 쇼츠로 봅니다. 2024년 10월 15일 이전에 올라온 영상은 1분 이하가 기준입니다. 화면비와 길이는 API로 받은 값으로 확인합니다.
-              <small>(※ 화면비 정보가 없는 영상은 60초 이하이거나 제목·설명에 #shorts가 있으면 쇼츠로 추정하고, 형식 옆에 *를 표시합니다.)</small>
-            </div>
-          </span>
           <button type="button" id="chMoreBtn" class="ghost small more-toggle" aria-expanded="false" aria-controls="chMore">상세 설정</button>
           <span id="chScopeSummary" class="muted"></span>
         </div>
         <div id="chMore" class="sub-panel" hidden>
-          <p class="sub-panel-title">분석할 영상을 고를 범위</p>
-          <label class="scope-opt">
-            <input type="radio" name="chScopeMode" id="chModeCount" value="count" checked>
-            <span>최근 업로드</span>
-            <select id="chScopeCount" aria-label="최근 업로드 영상 수">
-              <option value="100">100개</option><option value="300" selected>300개</option><option value="1000">1,000개</option><option value="all">전체</option>
-            </select>
-            <span>안에서</span>
+          <label class="check-line">
+            <input type="checkbox" id="chVideoOn">
+            <span><b>영상 단위 지표도 분석</b> <span class="muted">참여율, 평균 좋아요·댓글, 중앙값 조회수, 구독자 대비 조회율, 업로드 빈도, 쇼츠 비중 등</span></span>
           </label>
-          <label class="scope-opt">
-            <input type="radio" name="chScopeMode" id="chModeDate" value="date">
-            <span>게시일</span>
-            <input id="chFrom" type="date" aria-label="시작일"> <span>~</span> <input id="chTo" type="date" aria-label="종료일">
-            <span>사이에서</span>
-          </label>
-          <p class="muted">선정 기준이 최근 업로드순이면 범위 안의 가장 최근 영상을, 조회수·좋아요·댓글 순이면 범위 안에서 그 수치가 높은 영상을 위 개수만큼 고릅니다. 범위가 넓을수록 영상 50개당 할당량이 약 2씩 더 듭니다.</p>
+          <div id="chVideoOpts" class="video-opts" hidden>
+            <p class="sub-panel-title">분석할 영상 범위</p>
+            <label class="scope-opt">
+              <input type="radio" name="chVidMode" id="chModeRecent" value="recent" checked>
+              <span>최근 영상</span>
+              <select id="chN" aria-label="최근 영상 수"><option>10</option><option selected>30</option><option>50</option><option>100</option></select>
+              <span>개</span>
+            </label>
+            <label class="scope-opt">
+              <input type="radio" name="chVidMode" id="chModeDate" value="date">
+              <span>게시일</span>
+              <input id="chFrom" type="date" aria-label="시작일"> <span>~</span> <input id="chTo" type="date" aria-label="종료일">
+              <span>사이의 영상 전체</span>
+            </label>
+            <label class="scope-opt">
+              <input type="radio" name="chVidMode" id="chModeTop" value="top">
+              <span>인기 영상 상위</span>
+              <select id="chTopN" aria-label="인기 영상 수"><option>10</option><option selected>30</option><option>50</option><option>100</option></select>
+              <span>개 · 기준</span>
+              <select id="chSort" aria-label="인기 기준"><option value="views">조회수</option><option value="likes">좋아요</option><option value="comments">댓글</option></select>
+              <select id="chScopeCount" aria-label="찾아볼 범위"><option value="100">최근 100개 중</option><option value="300" selected>최근 300개 중</option><option value="1000">최근 1,000개 중</option><option value="all">채널 전체 중</option></select>
+            </label>
+            <label class="scope-opt">
+              <input type="radio" name="chVidMode" id="chModeAll" value="all">
+              <span>채널 전체 영상</span>
+              <span class="muted">(영상이 많으면 할당량이 많이 듭니다 · 최대 5,000개)</span>
+            </label>
+            <div class="scope-opt">
+              <span>분석 영상 유형</span>
+              <select id="chType" aria-label="분석 영상 유형">
+                <option value="all">전체</option>
+                <option value="long">일반 영상만</option>
+                <option value="short">쇼츠만</option>
+              </select>
+              <span class="info-wrap" id="chTypeInfoWrap" hidden>
+                <button type="button" class="info-btn" data-pop="chTypePop" aria-label="쇼츠 판별 기준" aria-expanded="false" aria-controls="chTypePop">i</button>
+                <div id="chTypePop" class="info-pop align-left" role="dialog" aria-label="쇼츠 판별 기준" hidden>
+                  YouTube 기준에 따라 세로 또는 정사각형이면서 3분 이하인 영상을 쇼츠로 봅니다. 2024년 10월 15일 이전에 올라온 영상은 1분 이하가 기준입니다. 화면비와 길이는 API로 받은 값으로 확인합니다.
+                  <small>(※ 화면비 정보가 없는 영상은 60초 이하이거나 제목·설명에 #shorts가 있으면 쇼츠로 추정하고, 형식 옆에 *를 표시합니다.)</small>
+                </div>
+              </span>
+            </div>
+            <p class="muted">영상 50개를 읽을 때마다 할당량이 약 2 사용됩니다. 인기 영상 상위는 잘된 영상만 모으므로 평균·참여율이 최근 영상 기준보다 높게 나옵니다.</p>
+          </div>
         </div>
         <div class="row">
           <span class="muted">여러 채널의 지표를 한 번에 모아 볼 때 유용합니다. 단일 채널 분석도 가능합니다.</span>
@@ -165,7 +170,8 @@
             <dt>중앙값 조회수</dt><dd>한두 개 대박 영상에 평균이 왜곡되는 것을 막아 주는, 광고 단가 산정에 더 현실적인 기준입니다.</dd>
             <dt>히트 영상</dt><dd>중앙값의 2배 이상 조회된 영상 수.</dd>
             <dt>조회수 편차(CV)</dt><dd>표준편차 ÷ 평균. 낮을수록 영상별 성과가 안정적입니다.</dd>
-            <dt>선정 기준</dt><dd>최근 업로드순은 가장 최근 영상 N개를, 조회수·좋아요·댓글 순은 범위(기본: 최근 업로드 300개, “상세 설정”에서 변경) 안에서 그 수치가 높은 영상 N개를 분석합니다. 상위 영상만 모으므로 평균·참여율이 최근 업로드순보다 높게 나옵니다. YouTube가 채널 영상을 좋아요·댓글 순으로 주지 않아 범위 안의 영상을 모두 읽어 고르며, 영상 50개당 할당량이 약 2 사용됩니다.</dd>
+            <dt>채널 지표 / 영상 단위 지표</dt><dd>기본은 구독자·총 조회수·영상 수처럼 채널 전체에 대한 값만 비교합니다(채널당 할당량 약 1). “상세 설정”에서 영상 단위 지표를 켜면 고른 범위의 영상을 읽어 참여율 등을 계산합니다. 인기 영상 상위는 YouTube가 좋아요·댓글 순 정렬을 주지 않아 범위 안 영상을 모두 읽어 고릅니다.</dd>
+            <dt>영상당 평균 조회수(누적)</dt><dd>채널 총 조회수 ÷ 채널 영상 수. 채널이 생긴 뒤 전체를 기준으로 한 값입니다.</dd>
             <dt>주간 업로드</dt><dd>살펴본 범위의 영상 수 ÷ 그 기간(주). 최근 업로드 기준이면 가장 오래된 영상부터 오늘까지, 게시일 기준이면 지정한 기간으로 셉니다.</dd>
             <dt>쇼츠 판별</dt><dd>YouTube 기준(세로 또는 정사각형 + 3분 이하, 2024년 10월 15일 이전 업로드는 1분 이하)에 따라 API로 받은 화면비와 길이로 판별합니다. 화면비 정보가 없는 영상은 60초 이하이거나 제목·설명에 #shorts가 있으면 쇼츠로 추정하고, 형식 옆에 *를 표시합니다.</dd>
           </dl>

@@ -278,37 +278,44 @@ const CHANNEL_SORT = {
   comments: { label: '댓글 상위', key: 'comments' },
 };
 
-// 분석 범위: 최근 업로드 N개(기본 300) 또는 게시일 기간. "전체"는 너무 큰 채널에서 할당량이 새지 않도록 최근 5,000개까지만 읽는다.
-function channelScope() {
-  if ($('#chModeDate').checked) {
-    const from = $('#chFrom').value, to = $('#chTo').value;
-    return {
-      mode: 'date', from, to,
-      since: from ? new Date(`${from}T00:00:00`) : null,
-      before: to ? new Date(`${to}T23:59:59.999`) : null,
-    };
-  }
-  const v = $('#chScopeCount').value;
-  return { mode: 'count', count: v === 'all' ? 5000 : +v, all: v === 'all' };
+// 영상 단위 분석 설정. off면 채널 자체 지표만 본다.
+// 범위: recent(최근 N개) · date(게시일 기간 전체) · top(인기 상위 N개, 최근 M개 또는 전체 중) · all(채널 전체, 최대 5,000개)
+function channelPlan() {
+  const on = $('#chVideoOn').checked;
+  const mode = document.querySelector('input[name="chVidMode"]:checked')?.value || 'recent';
+  const from = $('#chFrom').value, to = $('#chTo').value, pool = $('#chScopeCount').value;
+  return {
+    on, mode, type: $('#chType').value,
+    n: mode === 'top' ? +$('#chTopN').value : +$('#chN').value,
+    sort: $('#chSort').value,
+    from, to,
+    since: mode === 'date' && from ? new Date(`${from}T00:00:00`) : null,
+    before: mode === 'date' && to ? new Date(`${to}T23:59:59.999`) : null,
+    pool: pool === 'all' ? 5000 : +pool, poolAll: pool === 'all',
+  };
 }
 
-function scopeText(scope) {
-  if (scope.mode === 'date') return `${scope.from || '처음'} ~ ${scope.to || '오늘'} 게시`;
-  return scope.all ? '채널 전체' : `최근 ${fmt.num(scope.count)}개`;
+function planText(p) {
+  if (!p.on) return '채널 자체 지표만 비교 (채널당 할당량 약 1)';
+  const type = { all: '', long: ' 일반', short: ' 쇼츠' }[p.type];
+  if (p.mode === 'recent') return `영상 지표: 최근${type} 영상 ${p.n}개`;
+  if (p.mode === 'date') return `영상 지표: ${p.from || '처음'} ~ ${p.to || '오늘'} 게시${type} 영상 전체`;
+  if (p.mode === 'all') return `영상 지표: 채널 전체${type} 영상`;
+  return `영상 지표: ${p.poolAll ? '채널 전체' : `최근 ${fmt.num(p.pool)}개`}${type} 영상 중 ${CHANNEL_SORT[p.sort].label} ${p.n}개`;
 }
 
-// 선정 기준에 맞는 분석 영상과, 업로드 빈도를 셀 범위 안의 영상을 함께 돌려준다
-async function pickChannelVideos(ch, { n, type, sort, scope }, onProgress) {
+// 설정에 맞는 분석 영상과, 업로드 빈도를 셀 범위 안의 영상을 함께 돌려준다
+async function pickChannelVideos(ch, p, onProgress) {
   if (!ch.uploads) return { picked: [], scanned: [] };
-  const opts = scope.mode === 'date'
-    ? { type, since: scope.since, before: scope.before, scanMax: 5000 }
-    : { type, scanMax: sort === 'recent' ? Math.max(500, n) : scope.count };
-  // 최근 업로드순은 범위 안에서 앞쪽 n개만 있으면 되므로 그만큼만 읽는다
-  if (sort === 'recent') opts.want = n;
-  const pool = await fetchUploads(ch.uploads, opts, onProgress);
-  const key = CHANNEL_SORT[sort].key;
-  const picked = key ? [...pool].sort((a, b) => (b[key] ?? -1) - (a[key] ?? -1)).slice(0, n) : pool.slice(0, n);
-  return { picked, scanned: pool };
+  const type = p.type;
+  let pool;
+  if (p.mode === 'recent') pool = await fetchUploads(ch.uploads, { type, want: p.n, scanMax: Math.max(500, p.n) }, onProgress);
+  else if (p.mode === 'date') pool = await fetchUploads(ch.uploads, { type, since: p.since, before: p.before, scanMax: 5000 }, onProgress);
+  else if (p.mode === 'all') pool = await fetchUploads(ch.uploads, { type, scanMax: 5000 }, onProgress);
+  else pool = await fetchUploads(ch.uploads, { type, scanMax: p.pool }, onProgress);
+  if (p.mode !== 'top') return { picked: pool, scanned: pool };
+  const key = CHANNEL_SORT[p.sort].key;
+  return { picked: [...pool].sort((a, b) => (b[key] ?? -1) - (a[key] ?? -1)).slice(0, p.n), scanned: pool };
 }
 
 /* ---------------- 지표 계산 ---------------- */
@@ -784,18 +791,16 @@ const VIDEO_COMPARE = [
 
 /* ---------------- 탭: 채널 분석 ---------------- */
 
-// "상세 설정" 옆에 지금 적용될 범위를 짧게 보여 준다. 기간 기준을 고르면 비어 있는 날짜는 최근 30일로 채운다.
+// "상세 설정" 옆에 지금 적용될 분석 방식을 짧게 보여 준다. 기간을 고르면 비어 있는 날짜는 최근 30일로 채운다.
 function syncChScope() {
+  $('#chVideoOpts').hidden = !$('#chVideoOn').checked;
   if ($('#chModeDate').checked && !$('#chFrom').value && !$('#chTo').value) {
     const today = new Date();
     $('#chTo').value = today.toLocaleDateString('sv-SE');
     $('#chFrom').value = new Date(today - 30 * 864e5).toLocaleDateString('sv-SE');
   }
   $('#chFrom').max = $('#chTo').max = new Date().toLocaleDateString('sv-SE');
-  const scope = channelScope();
-  $('#chScopeSummary').textContent = $('#chSort').value === 'recent' && scope.mode === 'count'
-    ? '범위: 가장 최근 영상부터'
-    : `범위: ${scopeText(scope)} 영상 중`;
+  $('#chScopeSummary').textContent = planText(channelPlan());
 }
 
 // 분석 영상 유형이 "쇼츠만"일 때만 쇼츠 판별 기준 ⓘ 버튼을 보인다
@@ -806,6 +811,32 @@ function syncChTypeInfo() {
 }
 
 let channelResults = [];
+
+// 채널 자체 지표 (영상 단위 분석을 끄면 이것만 보여 준다)
+const channelBaseCols = [
+  channelCol,
+  { key: 'subs', label: '구독자', type: 'num' },
+  { key: 'totalViews', label: '총 조회수', type: 'num' },
+  { key: 'videoCount', label: '총 영상', type: 'num' },
+  { key: 'lifetimeAvgViews', label: '영상당 평균 조회수(누적)', type: 'num' },
+  { key: 'createdAt', label: '개설일', type: 'date' },
+  { key: 'ageYears', label: '운영 기간(년)', type: 'dec' },
+  { key: 'country', label: '국가', type: 'text' },
+];
+const channelBaseCsvCols = [
+  { key: 'title', label: '채널명', type: 'text' },
+  { key: 'handle', label: '핸들', type: 'text' },
+  { key: 'id', label: '채널ID', type: 'text' },
+  { key: 'url', label: 'URL', type: 'text' },
+  ...channelBaseCols.slice(1),
+];
+const CHANNEL_BASE_COMPARE = [
+  { key: 'subs', label: '구독자', type: 'num' },
+  { key: 'totalViews', label: '총 조회수', type: 'num' },
+  { key: 'videoCount', label: '총 영상', type: 'num' },
+  { key: 'lifetimeAvgViews', label: '영상당 평균 조회수(누적)', type: 'num' },
+  { key: 'ageYears', label: '운영 기간(년)', type: 'dec' },
+];
 
 const channelCols = [
   channelCol,
@@ -845,8 +876,8 @@ const channelCsvCols = [
 async function runChannels() {
   const lines = unique($('#chInput').value.split('\n').map(s => s.trim()).filter(Boolean));
   if (!lines.length) return toast('분석할 채널을 입력해 주세요.');
-  const n = +$('#chN').value, type = $('#chType').value, sort = $('#chSort').value, scope = channelScope();
-  if (scope.mode === 'date' && scope.since && scope.before && scope.since > scope.before) return toast('시작일이 종료일보다 늦습니다.');
+  const plan = channelPlan();
+  if (plan.on && plan.mode === 'date' && plan.since && plan.before && plan.since > plan.before) return toast('시작일이 종료일보다 늦습니다.');
 
   const ids = [], failed = [], results = [];
   let quotaHit = false;
@@ -858,13 +889,15 @@ async function runChannels() {
     }
     if (!ids.length) throw new Error('채널을 찾지 못했습니다: ' + failed.join(', '));
 
-    const channels = await fetchChannels(ids);
-    for (const [i, ch] of channels.entries()) {
+    const channels = (await fetchChannels(ids)).map(ch => ({ ...ch, ageYears: ch.createdAt ? (Date.now() - ch.createdAt) / (365.25 * 864e5) : null }));
+    if (!plan.on) results.push(...channels);
+    else for (const [i, ch] of channels.entries()) {
       const label = `${ch.title} 영상 불러오는 중… (${i + 1}/${channels.length})`;
       setStatus('#chStatus', label, 'busy');
-      const progress = (k, scanned) => setStatus('#chStatus', sort === 'recent' ? `${label} ${k}개` : `${label} ${scanned}개 훑는 중`, 'busy');
-      const { picked, scanned } = await pickChannelVideos(ch, { n, type, sort, scope }, progress);
-      results.push({ ...channelMetrics(ch, picked, scanned, scope.mode === 'date' ? scope : null), sortKey: CHANNEL_SORT[sort].key || null });
+      const progress = (k, scanned) => setStatus('#chStatus', plan.mode === 'recent' ? `${label} ${k}개` : `${label} ${scanned}개 읽는 중`, 'busy');
+      const { picked, scanned } = await pickChannelVideos(ch, plan, progress);
+      const period = plan.mode === 'date' ? { since: plan.since, before: plan.before } : null;
+      results.push({ ...channelMetrics(ch, picked, scanned, period), ageYears: ch.ageYears, sortKey: plan.mode === 'top' ? CHANNEL_SORT[plan.sort].key : null });
     }
   } catch (e) {
     // 도중에 끊긴 채널은 영상이 일부만 모여 지표가 왜곡되므로 넣지 않는다
@@ -873,26 +906,33 @@ async function runChannels() {
   }
   channelResults = results;
 
-  const typeLabel = { all: '전체', long: '일반', short: '쇼츠' }[type];
+  const short = plan.on && (plan.mode === 'recent' || plan.mode === 'top') && results.some(r => r.sample < plan.n);
   const body = block($('#chResult'), {
     title: `채널 비교 (${results.length}개)`,
-    sub: `${sort === 'recent' && scope.mode === 'count' ? `최근 ${typeLabel} 영상 ${n}개 기준` : `${scopeText(scope)}${type === 'all' ? '' : ` ${typeLabel}`} 영상 중 ${sort === 'recent' ? '최근' : CHANNEL_SORT[sort].label} ${n}개 기준`}${results.some(r => r.sample < n) ? ` · 범위 안 영상이 적어 ${n}개보다 적게 분석된 채널이 있습니다` : ''} · 열 제목을 누르면 정렬, 행을 누르면 영상별 상세${failed.length ? ` · 찾지 못한 채널: ${esc(failed.join(', '))}` : ''}`,
-    actions: [
+    sub: [
+      planText(plan),
+      short ? `영상이 적어 ${plan.n}개보다 적게 분석된 채널이 있습니다` : '',
+      plan.on ? '열 제목을 누르면 정렬, 행을 누르면 영상별 상세' : '참여율 등 영상 단위 지표는 “상세 설정”에서 켤 수 있습니다',
+      failed.length ? `찾지 못한 채널: ${esc(failed.join(', '))}` : '',
+    ].filter(Boolean).join(' · '),
+    actions: plan.on ? [
       { label: '채널 요약 CSV', run: () => downloadCSV('채널비교', channelCsvCols, channelResults) },
       { label: '전체 영상 CSV', run: () => downloadCSV('채널별_영상', [{ key: 'channelTitle', label: '채널', type: 'text' }, ...videoCols(false), ...videoCsvExtra], channelResults.flatMap(c => c.videos)) },
+    ] : [
+      { label: '채널 요약 CSV', run: () => downloadCSV('채널비교', channelBaseCsvCols, channelResults) },
     ],
   });
   body.innerHTML = '<div class="cmp"></div><div class="ctbl"></div>';
-  compareChart($('.cmp', body), results, CHANNEL_COMPARE, { label: r => r.title, link: r => r.url });
-  renderTable($('.ctbl', body), channelCols, results, {
+  compareChart($('.cmp', body), results, plan.on ? [...CHANNEL_COMPARE, ...CHANNEL_BASE_COMPARE.filter(m => !CHANNEL_COMPARE.some(c => c.key === m.key))] : CHANNEL_BASE_COMPARE, { label: r => r.title, link: r => r.url });
+  renderTable($('.ctbl', body), plan.on ? channelCols : channelBaseCols, results, plan.on ? {
     onRowClick: (r, tr) => {
       tr.parentElement.querySelectorAll('tr.selected').forEach(x => x.classList.remove('selected'));
       tr.classList.add('selected');
       showChannelDetail(r);
     },
-  });
+  } : {});
   $('#chDetail').innerHTML = '';
-  if (results.length === 1) showChannelDetail(results[0]);
+  if (plan.on && results.length === 1) showChannelDetail(results[0]);
   addRecent('channels', results.length > 1 ? `${results[0].title} 외 ${results.length - 1}개` : results[0].title);
   if (quotaHit) quotaNotice('#chStatus', `채널 ${lines.length}개 중 ${results.length}개까지만 분석했습니다.`);
 }
@@ -1927,7 +1967,8 @@ function init() {
     $('#chMore').hidden = !open;
     $('#chMoreBtn').setAttribute('aria-expanded', String(open));
   };
-  ['#chSort', '#chScopeCount', '#chFrom', '#chTo', '#chModeCount', '#chModeDate'].forEach(sel => { $(sel).onchange = syncChScope; });
+  ['#chVideoOn', '#chN', '#chTopN', '#chSort', '#chScopeCount', '#chFrom', '#chTo', '#chModeRecent', '#chModeDate', '#chModeTop', '#chModeAll'].forEach(sel => { $(sel).onchange = syncChScope; });
+  $('#chType').addEventListener('change', syncChScope);
   syncChScope();
   $('#chType').onchange = syncChTypeInfo;
   $('#vRun').onclick = () => run($('#vRun'), '#vStatus', runVideos);

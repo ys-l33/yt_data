@@ -176,6 +176,9 @@ main::after { bottom: 64px; }
 .more-toggle[aria-expanded="true"]::after { content: " ▴"; }
 .sub-panel { margin-top: 14px; padding: 14px 16px; border: 1px dashed var(--rule-2); background: var(--paper-hi); }
 .sub-panel-title { margin: 0 0 10px; font-weight: 700; font-size: 13px; }
+.check-line { display: flex; align-items: flex-start; gap: 8px; cursor: pointer; }
+.check-line input { accent-color: var(--ink); width: 16px; height: 16px; margin: 2px 0 0; flex: none; }
+.video-opts { margin-top: 14px; padding-top: 12px; border-top: 1px dashed var(--rule-2); }
 .scope-opt { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
 .scope-opt input[type=radio] { accent-color: var(--ink); width: 16px; height: 16px; margin: 0; }
 .sub-panel .muted { margin: 6px 0 0; }

@@ -27,7 +27,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@0,300;0,500;1,300&family=Fraunces:ital,opsz,wght,SOFT,WONK@0,9..144,300..600,0..100,0..1;1,9..144,300..600,0..100,0..1&family=Gowun+Batang:wght@400;700&display=swap">
-  <link rel="stylesheet" href="style.css?v=20261029-61">
+  <link rel="stylesheet" href="style.css?v=20261029-62">
 </head>
 <body>
   <div class="ambient" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span><i></i><i></i><i></i><i></i><i></i><i></i></div>
@@ -129,11 +129,12 @@
             </label>
             <label class="scope-opt">
               <input type="radio" name="chVidMode" id="chModeTop" value="top">
-              <span>인기 영상 상위</span>
-              <select id="chTopN" aria-label="인기 영상 수"><option>10</option><option selected>30</option><option>50</option><option>100</option></select>
-              <span>개 · 기준</span>
+              <select id="chScopeCount" aria-label="찾아볼 범위"><option value="100">최근 100개</option><option value="300" selected>최근 300개</option><option value="1000">최근 1,000개</option><option value="all">채널 전체</option></select>
+              <span>중</span>
               <select id="chSort" aria-label="인기 기준"><option value="views">조회수</option><option value="likes">좋아요</option><option value="comments">댓글</option></select>
-              <select id="chScopeCount" aria-label="찾아볼 범위"><option value="100">최근 100개 중</option><option value="300" selected>최근 300개 중</option><option value="1000">최근 1,000개 중</option><option value="all">채널 전체 중</option></select>
+              <span>기준 인기 영상 상위</span>
+              <select id="chTopN" aria-label="인기 영상 수"><option>10</option><option selected>30</option><option>50</option><option>100</option></select>
+              <span>개</span>
             </label>
             <label class="scope-opt">
               <input type="radio" name="chVidMode" id="chModeAll" value="all">

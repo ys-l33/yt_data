@@ -301,7 +301,7 @@ function planText(p) {
   if (p.mode === 'recent') return `영상 지표: 최근${type} 영상 ${p.n}개`;
   if (p.mode === 'date') return `영상 지표: ${p.from || '처음'} ~ ${p.to || '오늘'} 게시${type} 영상 전체`;
   if (p.mode === 'all') return `영상 지표: 채널 전체${type} 영상`;
-  return `영상 지표: ${p.poolAll ? '채널 전체' : `최근 ${fmt.num(p.pool)}개`}${type} 영상 중 ${CHANNEL_SORT[p.sort].label} ${p.n}개`;
+  return `영상 지표: ${p.poolAll ? '채널 전체' : `최근 ${fmt.num(p.pool)}개`}${type} 영상 중 ${{ views: '조회수', likes: '좋아요', comments: '댓글' }[p.sort]} 기준 인기 영상 상위 ${p.n}개`;
 }
 
 // 설정에 맞는 분석 영상과, 업로드 빈도를 셀 범위 안의 영상을 함께 돌려준다

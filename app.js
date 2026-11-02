@@ -86,6 +86,9 @@ const QUOTA_RESET = '태평양 시간 자정(한국 시간 오후 4~5시)에 초
 const isQuotaError = e => /quotaExceeded|dailyLimitExceeded/i.test(e?.reason || '');
 const quotaNotice = (sel, what) => setStatus(sel, `할당량이 소진되어 ${what} ${QUOTA_RESET}`, 'error');
 
+// 글자 비교용 정규화: 맥에서 올린 제목처럼 한글이 자모로 쪼개져(NFD) 저장된 경우와 보이지 않는 폭 0 문자를 맞춰 준다
+const norm = t => String(t ?? '').normalize('NFC').replace(/[\u200B-\u200D\u2060\uFEFF\u00AD]/g, '').toLowerCase();
+
 const chunk = (arr, n) => Array.from({ length: Math.ceil(arr.length / n) }, (_, i) => arr.slice(i * n, i * n + n));
 const unique = arr => [...new Set(arr)];
 
@@ -1047,14 +1050,14 @@ async function runSearch() {
   const type = $('#sType').value, count = searchCount();
   if (!count) return toast(`결과 수를 1~${SEARCH_MAX} 사이로 입력해 주세요.`);
   // YouTube 검색은 비슷한 말까지 넓게 잡으므로(예: 페이 → 페이커) 위치별 제외 단어로 결과를 거른다
-  const words = sel => unique($(sel).value.split(',').map(s => s.trim().toLowerCase()).filter(Boolean));
+  const words = sel => unique($(sel).value.split(',').map(s => norm(s).trim()).filter(Boolean));
   const ex = {
     title: words('#sExTitle'),
     desc: words('#sExDesc'),
     tags: type === 'video' ? words('#sExTags') : [],
     channel: words('#sExChannel'),
   };
-  const hasAny = (text, list) => list.length > 0 && list.some(w => (text || '').toLowerCase().includes(w));
+  const hasAny = (text, list) => list.length > 0 && list.some(w => norm(text).includes(w));
   // YouTube의 -단어 연산자는 제목·설명·태그 어디에 있든 빼므로, 세 칸 모두에 넣은 단어만 보내 검색 낭비를 줄인다
   const everywhere = type === 'video'
     ? ex.title.filter(w => ex.desc.includes(w) && ex.tags.includes(w))
@@ -1185,8 +1188,8 @@ function keywordCompare(s) {
   if (s.terms.length < 2) return '';
   const isVideo = s.type === 'video';
   const rows = s.terms.map(term => {
-    const t = term.toLowerCase();
-    const hit = s.results.filter(r => `${r.title} ${r.description || ''} ${r.tags || ''} ${r.handle || ''}`.toLowerCase().includes(t));
+    const t = norm(term);
+    const hit = s.results.filter(r => norm(`${r.title} ${r.description || ''} ${r.tags || ''} ${r.handle || ''}`).includes(t));
     const views = hit.map(r => (isVideo ? r.views : r.subs)).filter(v => v != null);
     const er = isVideo ? (() => { const tv = sum(hit.map(r => r.views)); return tv ? sum(hit.map(r => (r.likes || 0) + (r.comments || 0))) / tv : null; })() : null;
     return { term, n: hit.length, avg: mean(views), med: median(views), er };
@@ -1305,7 +1308,7 @@ let commentData = { video: null, comments: [] };
 const STOPWORDS = new Set(('그리고 그래서 그런데 근데 하지만 그냥 진짜 정말 너무 완전 이거 저거 그거 이건 저건 그건 이게 그게 저게 여기 거기 저는 제가 나는 내가 우리 이런 저런 그런 있는 없는 하는 해서 하고 같아요 같은 있어요 합니다 입니다 ' +
   'the and to is of a in it this that for you i my me so are was be on with just not but have its your').split(' '));
 
-const tokenize = t => t.toLowerCase().split(/[^\p{L}\p{N}]+/u);
+const tokenize = t => norm(t).split(/[^\p{L}\p{N}]+/u);
 
 function topWords(texts, limit = 40) {
   const freq = new Map();
@@ -1372,9 +1375,9 @@ function renderComments() {
   const { video, comments } = commentData;
   if (!video) return;
   const keywords = $('#cKeywords').value.split(',').map(s => s.trim()).filter(Boolean);
-  const lower = comments.map(c => c.text.toLowerCase());
+  const lower = comments.map(c => norm(c.text));
   const mentions = keywords.map(k => {
-    const kl = k.toLowerCase();
+    const kl = norm(k);
     const n = lower.filter(t => t.includes(kl)).length;
     return [k, n];
   });
@@ -1388,7 +1391,7 @@ function renderComments() {
   ];
   const csvCols = [
     ...cols.slice(0, 2),
-    ...keywords.map(k => ({ key: 'kw_' + k, label: `언급:${k}`, type: 'text', csv: r => (r.text.toLowerCase().includes(k.toLowerCase()) ? 1 : 0) })),
+    ...keywords.map(k => ({ key: 'kw_' + k, label: `언급:${k}`, type: 'text', csv: r => (norm(r.text).includes(norm(k)) ? 1 : 0) })),
     ...cols.slice(2),
     { key: 'authorUrl', label: '작성자 채널', type: 'text' },
     { key: 'id', label: '댓글ID', type: 'text' },
@@ -1408,7 +1411,7 @@ function renderComments() {
 
   // 단어(토큰 일치) 또는 언급 키워드(부분 일치)로 댓글 거르기. 자주 쓰인 단어의 개수와 같은 기준이다.
   const tokenSets = comments.map(c => new Set(tokenize(c.text)));
-  const matches = (f, i) => (f.kind === 'word' ? tokenSets[i].has(f.value) : lower[i].includes(f.value.toLowerCase()));
+  const matches = (f, i) => (f.kind === 'word' ? tokenSets[i].has(f.value) : lower[i].includes(norm(f.value)));
   const visible = () => {
     const f = commentData.filter;
     return f ? comments.filter((_, i) => matches(f, i)) : comments;

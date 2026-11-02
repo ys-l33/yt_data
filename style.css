@@ -153,6 +153,7 @@ main::after { bottom: 64px; }
 }
 .restart:hover { background: var(--tint); border-color: var(--ink); }
 .panel-head .title { font-family: var(--f-title); font-size: 30px; font-weight: 700; letter-spacing: -.02em; margin: 0; line-height: 1.2; }
+.panel-head .panel-desc { flex: 1; min-width: 220px; margin: 0; align-self: center; color: var(--ink-2); font-size: 13.5px; word-break: keep-all; }
 
 /* ---------- 카드 & 폼 ---------- */
 .card {

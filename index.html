@@ -27,7 +27,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@0,300;0,500;1,300&family=Fraunces:ital,opsz,wght,SOFT,WONK@0,9..144,300..600,0..100,0..1;1,9..144,300..600,0..100,0..1&family=Gowun+Batang:wght@400;700&display=swap">
-  <link rel="stylesheet" href="style.css?v=20261029-56">
+  <link rel="stylesheet" href="style.css?v=20261029-57">
 </head>
 <body>
   <div class="ambient" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span><i></i><i></i><i></i><i></i><i></i><i></i></div>
@@ -55,8 +55,7 @@
   <main>
     <!-- 홈 -->
     <section id="tab-home" class="panel active">
-      <div class="panel-head"><span class="kicker">(00) — HOME</span><h2 class="title">홈</h2></div>
-      <p class="home-lead">내 YouTube API 키로 채널·영상·댓글 지표를 한 번에 뽑아 보고, 비교하고, CSV로 저장하는 분석 도구입니다.</p>
+      <div class="panel-head"><span class="kicker">(00) — HOME</span><h2 class="title">홈</h2><p class="panel-desc">내 YouTube API 키로 채널·영상·댓글 지표를 한 번에 뽑아 보고, 비교하고, CSV로 저장하는 분석 도구입니다.</p></div>
 
       <div class="feature-grid">
         <button type="button" class="feature" data-go="channels"><span class="no">01</span><strong>채널 비교·분석</strong><span class="desc">여러 채널의 구독자, 평균·중앙값 조회수, 참여율 등을 한 표로 비교합니다.</span><span class="go">바로 가기 →</span></button>
@@ -88,7 +87,7 @@
 
     <!-- 채널 분석 -->
     <section id="tab-channels" class="panel">
-      <div class="panel-head"><span class="kicker">(01) — CHANNELS</span><h2 class="title">채널 비교·분석</h2></div>
+      <div class="panel-head"><span class="kicker">(01) — CHANNELS</span><h2 class="title">채널 비교·분석</h2><p class="panel-desc">여러 채널의 지표를 한 번에 모아 볼 때 유용합니다. 단일 채널 분석도 가능합니다.</p></div>
       <div class="card">
         <label class="field">
           <span>채널 목록 <em>한 줄에 하나씩 · 채널 URL, @핸들, 채널 ID(UC…)</em></span>
@@ -159,7 +158,6 @@
           </div>
         </div>
         <div class="row">
-          <span class="muted">여러 채널의 지표를 한 번에 모아 볼 때 유용합니다. 단일 채널 분석도 가능합니다.</span>
           <button id="chRun" class="primary">분석하기</button>
         </div>
         <details class="help">
@@ -185,7 +183,7 @@
 
     <!-- 영상 비교·분석 -->
     <section id="tab-videos" class="panel">
-      <div class="panel-head"><span class="kicker">(02) — VIDEOS</span><h2 class="title">영상 비교·분석</h2></div>
+      <div class="panel-head"><span class="kicker">(02) — VIDEOS</span><h2 class="title">영상 비교·분석</h2><p class="panel-desc">여러 영상의 지표를 한 번에 모아 볼 때 유용합니다. 단일 영상 분석도 가능합니다.</p></div>
       <div class="card">
         <label class="field">
           <span>영상 목록 <em>한 줄에 하나씩 · 영상 URL, 쇼츠 URL, youtu.be 링크, 영상 ID</em></span>
@@ -202,7 +200,6 @@
           <ul class="picker-list"></ul>
         </div>
         <div class="row">
-          <span class="muted">여러 영상의 지표를 한 번에 모아 볼 때 유용합니다. 단일 영상 분석도 가능합니다.</span>
           <button id="vRun" class="primary">분석하기</button>
         </div>
       </div>
@@ -212,7 +209,7 @@
 
     <!-- 키워드 검색 -->
     <section id="tab-search" class="panel">
-      <div class="panel-head"><span class="kicker">(03) — SEARCH</span><h2 class="title">키워드 검색</h2></div>
+      <div class="panel-head"><span class="kicker">(03) — SEARCH</span><h2 class="title">키워드 검색</h2><p class="panel-desc">키워드로 영상·채널을 찾아 지표를 함께 봅니다. 검색 1회에 할당량 100이 사용됩니다.</p></div>
       <div class="card">
         <div class="grid">
           <label class="field wide">
@@ -295,7 +292,7 @@
 
     <!-- 댓글 수집 -->
     <section id="tab-comments" class="panel">
-      <div class="panel-head"><span class="kicker">(04) — COMMENTS</span><h2 class="title">댓글 분석</h2></div>
+      <div class="panel-head"><span class="kicker">(04) — COMMENTS</span><h2 class="title">댓글 분석</h2><p class="panel-desc">최상위 댓글을 수집합니다. 100개당 할당량 1이 사용됩니다.</p></div>
       <div class="card">
         <div class="grid">
           <label class="field wide">
@@ -316,7 +313,6 @@
           </label>
         </div>
         <div class="row">
-          <span class="muted">최상위 댓글을 수집합니다. 100개당 할당량 1이 사용됩니다.</span>
           <button id="cRun" class="primary">수집하기</button>
         </div>
       </div>
@@ -326,14 +322,13 @@
 
     <!-- 썸네일 다운로드 -->
     <section id="tab-thumbs" class="panel">
-      <div class="panel-head"><span class="kicker">(05) — THUMBNAILS</span><h2 class="title">썸네일 다운로드</h2></div>
+      <div class="panel-head"><span class="kicker">(05) — THUMBNAILS</span><h2 class="title">썸네일 다운로드</h2><p class="panel-desc">영상마다 실제로 있는 크기만 보여줍니다. 영상 50개당 할당량 1이 사용됩니다.</p></div>
       <div class="card">
         <label class="field">
           <span>영상 목록 <em>한 줄에 하나씩 · 영상 URL, 쇼츠 URL, youtu.be 링크, 영상 ID</em></span>
           <textarea id="tInput" rows="4" placeholder="https://www.youtube.com/watch?v=xxxxxxxxxxx&#10;https://youtu.be/xxxxxxxxxxx"></textarea>
         </label>
         <div class="row">
-          <span class="muted">영상마다 실제로 있는 크기만 보여줍니다. 영상 50개당 할당량 1이 사용됩니다.</span>
           <button id="tRun" class="primary">불러오기</button>
         </div>
       </div>
@@ -343,7 +338,7 @@
 
     <!-- 설정 -->
     <section id="tab-settings" class="panel">
-      <div class="panel-head"><span class="kicker">(06) — SETTINGS</span><h2 class="title">API 키 설정</h2></div>
+      <div class="panel-head"><span class="kicker">(06) — SETTINGS</span><h2 class="title">API 키 설정</h2><p class="panel-desc">본인의 YouTube Data API 키를 연결·관리하고, 발급 방법과 할당량 기준을 확인합니다.</p></div>
       <div class="card">
         <h2>YouTube Data API 키</h2>
         <div class="row keyrow">

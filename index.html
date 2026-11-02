@@ -27,7 +27,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@0,300;0,500;1,300&family=Fraunces:ital,opsz,wght,SOFT,WONK@0,9..144,300..600,0..100,0..1;1,9..144,300..600,0..100,0..1&family=Gowun+Batang:wght@400;700&display=swap">
-  <link rel="stylesheet" href="style.css?v=20261029-60">
+  <link rel="stylesheet" href="style.css?v=20261029-61">
 </head>
 <body>
   <div class="ambient" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span><i></i><i></i><i></i><i></i><i></i><i></i></div>
@@ -161,17 +161,17 @@
         <details class="help">
           <summary>지표 설명</summary>
           <dl>
-            <dt>참여율</dt><dd>(좋아요 + 댓글) ÷ 조회수. 분석 대상 영상 전체 합산 기준.</dd>
-            <dt>구독자 대비 조회율</dt><dd>평균 조회수 ÷ 구독자 수. 구독자 중 실제로 영상을 보는 비율의 근사치로, 구독자 수 “거품”을 가늠할 때 씁니다.</dd>
-            <dt>중앙값 조회수</dt><dd>한두 개 대박 영상에 평균이 왜곡되는 것을 막아 주는, 광고 단가 산정에 더 현실적인 기준입니다.</dd>
-            <dt>히트 영상</dt><dd>중앙값의 2배 이상 조회된 영상 수.</dd>
-            <dt>조회수 편차(CV)</dt><dd>표준편차 ÷ 평균. 낮을수록 영상별 성과가 안정적입니다.</dd>
-            <dt>채널 지표 / 영상 단위 지표</dt><dd>기본은 구독자·총 조회수·영상 수처럼 채널 전체에 대한 값만 비교합니다(채널당 할당량 약 1). “상세 설정”에서 영상 단위 지표를 켜면 고른 범위의 영상을 읽어 참여율 등을 계산합니다. 인기 영상 상위는 YouTube가 좋아요·댓글 순 정렬을 주지 않아 범위 안 영상을 모두 읽어 고릅니다.</dd>
-            <dt>영상당 평균 조회수(누적)</dt><dd>채널 총 조회수 ÷ 채널 영상 수. 채널이 생긴 뒤 전체를 기준으로 한 값입니다.</dd>
-            <dt>주간 업로드</dt><dd>살펴본 범위의 영상 수 ÷ 그 기간(주). 최근 업로드 기준이면 가장 오래된 영상부터 오늘까지, 게시일 기준이면 지정한 기간으로 셉니다.</dd>
-            <dt>쇼츠 판별</dt><dd>YouTube 기준(세로 또는 정사각형 + 3분 이하, 2024년 10월 15일 이전 업로드는 1분 이하)에 따라 API로 받은 화면비와 길이로 판별합니다. 화면비 정보가 없는 영상은 60초 이하이거나 제목·설명에 #shorts가 있으면 쇼츠로 추정하고, 형식 옆에 *를 표시합니다.</dd>
+            <dt>채널 지표 / 영상 단위 지표</dt><dd>기본은 채널 전체 값(구독자·총 조회수·영상 수)만 비교, 채널당 할당량 약 1<br>“상세 설정”에서 영상 단위 지표 선택 시 지정 범위의 영상을 읽어 참여율 등 계산<br>인기 영상 상위는 범위 내 영상 전체를 읽은 뒤 선별</dd>
+            <dt>영상당 평균 조회수(누적)</dt><dd>채널 총 조회수 ÷ 채널 영상 수, 채널 개설 이후 전체 기준</dd>
+            <dt>참여율</dt><dd>(좋아요 + 댓글) ÷ 조회수, 분석 영상 전체 합산 기준</dd>
+            <dt>구독자 대비 조회율</dt><dd>평균 조회수 ÷ 구독자 수, 구독자 중 실제 시청 비율의 근사치</dd>
+            <dt>중앙값 조회수</dt><dd>일부 고조회 영상에 의한 평균 왜곡을 줄인 대표 조회수</dd>
+            <dt>히트 영상</dt><dd>중앙값의 2배 이상 조회된 영상 수</dd>
+            <dt>조회수 편차(CV)</dt><dd>표준편차 ÷ 평균, 낮을수록 영상별 성과가 안정적</dd>
+            <dt>주간 업로드</dt><dd>분석 범위의 영상 수 ÷ 해당 기간(주)<br>최근 영상 기준은 가장 오래된 영상부터 오늘까지, 게시일 기준은 지정 기간</dd>
+            <dt>쇼츠 판별</dt><dd>세로 또는 정사각형이면서 3분 이하인 영상(2024년 10월 15일 이전 업로드는 1분 이하)<br>화면비 정보가 없으면 60초 이하 또는 제목·설명의 #shorts로 추정, 형식 옆 * 표시</dd>
           </dl>
-          <p class="muted">구독자 수는 YouTube 정책상 유효숫자 3자리로 반올림되어 제공됩니다. 공유 수, 시청 시간, 노출수, 클릭률, 시청자 연령/성별은 채널 소유자만 볼 수 있는 YouTube Analytics 데이터라 이 도구로는 추출할 수 없습니다.</p>
+          <p class="muted">구독자 수는 YouTube 정책상 유효숫자 3자리 반올림 값<br>공유 수·시청 시간·노출수·클릭률·시청자 연령/성별은 채널 소유자 전용 데이터로 추출 불가</p>
         </details>
       </div>
       <div id="chStatus" class="status-line"></div>

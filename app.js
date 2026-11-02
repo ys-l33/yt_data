@@ -1432,7 +1432,7 @@ function renderComments() {
         <div class="chips">${words.map(([w, n]) => `<button type="button" class="chip" data-kind="word" data-value="${esc(w)}">${esc(w)}<b>${n}</b></button>`).join('') || '<span class="muted">-</span>'}</div></div>
       <div><h4>언급 키워드</h4>
         ${keywords.length ? `<div class="chips">${mentions.map(([k, n]) => `<button type="button" class="chip" data-kind="kw" data-value="${esc(k)}">${esc(k)}<b>${n}개 · ${fmt.pct(comments.length ? n / comments.length : 0)}</b></button>`).join('')}</div>`
-          : '<span class="muted">위 “언급 키워드” 칸에 브랜드명·제품명을 입력하면 언급 댓글 수와 비율을 보여줍니다. 입력 후 다시 수집할 필요는 없습니다.</span>'}</div>
+          : '<span class="muted">위 “언급 키워드” 칸에 특정 단어를 입력하면 해당 단어가 언급된 댓글 수와 비율을 보여줍니다. 입력 후 데이터를 다시 수집할 필요는 없습니다.</span>'}</div>
     </div>
     <div class="cfilter"></div>
     <div class="ctable"></div>`;

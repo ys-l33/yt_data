@@ -653,12 +653,19 @@ function bindChartTips(root, vids) {
  * YouTube 검색(100 유닛)으로 후보를 보여 주고, 고른 항목의 주소를 목록 칸 끝에 한 줄로 붙인다.
  */
 function initPicker(root, { type, target, toUrl }) {
+  const PAGE = 8;
   const q = $('.picker-q', root), go = $('.picker-go', root), list = $('.picker-list', root), status = $('.picker-status', root);
-  let items = [];
+  const more = document.createElement('button');
+  more.type = 'button';
+  more.className = 'ghost small picker-more';
+  more.hidden = true;
+  list.after(more);
+  // 검색 1회(100 유닛)에 50개를 받아 두고 8개씩 보여 준다. 다 보여 주면 다음 페이지를 새로 검색한다.
+  let items = [], shown = 0, term = '', pageToken = null, busy = false;
   const listed = () => new Set($(target).value.split('\n').map(l => (type === 'channel' ? parseChannel(l).id : parseVideoId(l))).filter(Boolean));
   const draw = () => {
     const have = listed();
-    list.innerHTML = items.map((it, i) => `
+    list.innerHTML = items.slice(0, shown).map((it, i) => `
       <li>
         ${it.thumb ? `<img src="${esc(it.thumb)}" alt="" loading="lazy" class="${type === 'channel' ? 'round' : ''}">` : `<span class="ph ${type === 'channel' ? 'round' : ''}"></span>`}
         <div class="picker-info">
@@ -667,30 +674,40 @@ function initPicker(root, { type, target, toUrl }) {
         </div>
         <button type="button" class="ghost small" data-add="${i}" ${have.has(it.id) ? 'disabled' : ''}>${have.has(it.id) ? '추가됨' : '+ 추가'}</button>
       </li>`).join('');
+    const buffered = shown < items.length;
+    more.hidden = !(buffered || pageToken);
+    more.textContent = buffered ? `결과 더 보기 (${shown}/${items.length})` : '결과 더 보기 (검색 1회 100 유닛)';
   };
-  const search = async () => {
-    const term = q.value.trim();
-    if (!term) return toast('검색어를 입력해 주세요.');
-    go.disabled = true;
-    status.textContent = '검색 중…';
-    try {
-      const d = await yt('search', { part: 'snippet', type, q: term, maxResults: 8, regionCode: 'KR', relevanceLanguage: 'ko' });
-      const ids = d.items.map(i => (type === 'channel' ? i.id.channelId : i.id.videoId)).filter(Boolean);
-      if (type === 'channel') {
-        const chs = await fetchChannels(ids);
-        items = chs.map(c => ({ id: c.id, url: c.url, title: c.title, thumb: c.thumb, meta: `${c.handle || ''} · 구독자 ${c.subs == null ? '비공개' : fmt.compact(c.subs)} · 영상 ${fmt.num(c.videoCount)}개` }));
-      } else {
-        const vids = await fetchVideos(ids);
-        items = vids.map(v => ({ id: v.id, url: v.url, title: v.title, thumb: v.thumb, meta: `${v.channelTitle} · ${fmt.date(v.publishedAt)} · 조회수 ${fmt.compact(v.views)}` }));
-      }
-      status.textContent = items.length ? '' : '검색 결과가 없습니다.';
-      draw();
-    } catch (e) {
-      status.textContent = e.message;
-      if (e.reason === 'noKey') openKeyModal();
-    } finally {
-      go.disabled = false;
+  const fetchPage = async () => {
+    const d = await yt('search', { part: 'snippet', type, q: term, maxResults: 50, regionCode: 'KR', relevanceLanguage: 'ko', pageToken: pageToken || undefined });
+    pageToken = d.nextPageToken || null;
+    const seen = new Set(items.map(it => it.id));
+    const ids = d.items.map(i => (type === 'channel' ? i.id.channelId : i.id.videoId)).filter(id => id && !seen.has(id));
+    if (type === 'channel') {
+      const chs = await fetchChannels(ids);
+      items.push(...chs.map(c => ({ id: c.id, url: c.url, title: c.title, thumb: c.thumb, meta: `${c.handle || ''} · 구독자 ${c.subs == null ? '비공개' : fmt.compact(c.subs)} · 영상 ${fmt.num(c.videoCount)}개` })));
+    } else {
+      const vids = await fetchVideos(ids);
+      items.push(...vids.map(v => ({ id: v.id, url: v.url, title: v.title, thumb: v.thumb, meta: `${v.channelTitle} · ${fmt.date(v.publishedAt)} · 조회수 ${fmt.compact(v.views)}` })));
     }
+  };
+  const guarded = async (fn, msg) => {
+    if (busy) return;
+    busy = true; go.disabled = more.disabled = true;
+    status.textContent = msg;
+    try { await fn(); status.textContent = items.length ? '' : '검색 결과가 없습니다.'; draw(); }
+    catch (e) { status.textContent = e.message; if (e.reason === 'noKey') openKeyModal(); }
+    finally { busy = false; go.disabled = more.disabled = false; }
+  };
+  const search = () => {
+    term = q.value.trim();
+    if (!term) return toast('검색어를 입력해 주세요.');
+    items = []; shown = 0; pageToken = null;
+    guarded(async () => { await fetchPage(); shown = Math.min(PAGE, items.length); }, '검색 중…');
+  };
+  more.onclick = () => {
+    if (shown < items.length) { shown = Math.min(shown + PAGE, items.length); draw(); return; }
+    guarded(async () => { const before = items.length; await fetchPage(); shown = Math.min(before + PAGE, items.length); }, '다음 결과를 검색하는 중…');
   };
   go.onclick = search;
   q.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); search(); } };
@@ -704,7 +721,7 @@ function initPicker(root, { type, target, toUrl }) {
     toast(`“${it.title}”을(를) 목록에 추가했습니다.`);
   };
   $(target).addEventListener('input', () => items.length && draw());
-  return { reset() { items = []; q.value = ''; status.textContent = ''; list.innerHTML = ''; } };
+  return { reset() { items = []; shown = 0; pageToken = null; term = ''; q.value = ''; status.textContent = ''; list.innerHTML = ''; more.hidden = true; } };
 }
 
 /* ---------------- 비교 막대 차트 (채널·영상 공용) ----------------

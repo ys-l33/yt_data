@@ -4,12 +4,12 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>YouTube Data Playground 🎠</title>
-  <meta name="description" content="내 YouTube API 키로 채널·영상·댓글 지표를 한 번에 뽑아 비교하고 CSV로 내려받는 분석 도구. 키워드 검색, 댓글 분석, 썸네일 다운로드까지.">
+  <meta name="description" content="내 YouTube API 키로 채널·영상·댓글 지표를 한 번에 뽑아 비교하고 엑셀로 내려받는 분석 도구. 키워드 검색, 댓글 분석, 썸네일 다운로드까지.">
   <!-- 링크 미리보기 (카카오톡·bit.ly·슬랙 등) -->
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="YouTube Data Playground">
   <meta property="og:title" content="YouTube Data Playground 🎠">
-  <meta property="og:description" content="내 YouTube API 키로 채널·영상·댓글 지표를 한 번에 뽑아 비교하고 CSV로 내려받는 분석 도구. 키워드 검색, 댓글 분석, 썸네일 다운로드까지.">
+  <meta property="og:description" content="내 YouTube API 키로 채널·영상·댓글 지표를 한 번에 뽑아 비교하고 엑셀로 내려받는 분석 도구. 키워드 검색, 댓글 분석, 썸네일 다운로드까지.">
   <meta property="og:url" content="https://ys-l33.github.io/yt_data/">
   <meta property="og:image" content="https://ys-l33.github.io/yt_data/og-image.png">
   <meta property="og:image:width" content="1200">
@@ -18,7 +18,7 @@
   <meta property="og:locale" content="ko_KR">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="YouTube Data Playground 🎠">
-  <meta name="twitter:description" content="내 YouTube API 키로 채널·영상·댓글 지표를 한 번에 뽑아 비교하고 CSV로 내려받는 분석 도구. 키워드 검색, 댓글 분석, 썸네일 다운로드까지.">
+  <meta name="twitter:description" content="내 YouTube API 키로 채널·영상·댓글 지표를 한 번에 뽑아 비교하고 엑셀로 내려받는 분석 도구. 키워드 검색, 댓글 분석, 썸네일 다운로드까지.">
   <meta name="twitter:image" content="https://ys-l33.github.io/yt_data/og-image.png">
   <link rel="icon" href="favicon.svg?v=3" type="image/svg+xml">
   <link rel="icon" href="favicon-32.png?v=3" type="image/png" sizes="32x32">
@@ -27,7 +27,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@0,300;0,500;1,300&family=Fraunces:ital,opsz,wght,SOFT,WONK@0,9..144,300..600,0..100,0..1;1,9..144,300..600,0..100,0..1&family=Gowun+Batang:wght@400;700&display=swap">
-  <link rel="stylesheet" href="style.css?v=20261029-66">
+  <link rel="stylesheet" href="style.css?v=20261102-01">
 </head>
 <body>
   <div class="ambient" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span><i></i><i></i><i></i><i></i><i></i><i></i></div>
@@ -55,7 +55,7 @@
   <main>
     <!-- 홈 -->
     <section id="tab-home" class="panel active">
-      <div class="panel-head"><span class="kicker">(00) — HOME</span><h2 class="title">홈</h2><p class="panel-desc">내 YouTube API 키로 채널·영상·댓글 지표를 한 번에 뽑아 보고, 비교하고, CSV로 저장하는 분석 도구입니다.</p></div>
+      <div class="panel-head"><span class="kicker">(00) — HOME</span><h2 class="title">홈</h2><p class="panel-desc">내 YouTube API 키로 채널·영상·댓글 지표를 한 번에 뽑아 보고, 비교하고, 엑셀로 저장하는 분석 도구입니다.</p></div>
 
       <div class="feature-grid">
         <button type="button" class="feature" data-go="channels"><span class="no">01</span><strong>채널 비교·분석</strong><span class="desc">여러 채널의 구독자, 평균·중앙값 조회수, 참여율 등을 한 표로 비교합니다.</span><span class="go">바로 가기 →</span></button>
@@ -71,7 +71,7 @@
           <ol class="steps home-steps">
             <li id="stepKey">API 키 연결 <span id="stepKeyState"></span></li>
             <li>위에서 기능을 고르고 채널·영상 링크나 검색어 입력</li>
-            <li>결과 표를 확인하고 CSV로 저장</li>
+            <li>결과 표를 확인하고 엑셀로 저장</li>
           </ol>
         </div>
         <div class="card">
@@ -423,6 +423,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=20261029-66"></script>
+  <script src="app.js?v=20261102-01"></script>
 </body>
 </html>

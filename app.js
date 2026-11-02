@@ -392,17 +392,17 @@ const fmt = {
   },
 };
 
-// CSV에는 서식 없는 원값을 넣는다
+// 엑셀에는 서식 없는 원값을 넣는다
 const csvVal = {
   num: v => (v == null || isNaN(v) ? '' : Math.round(v)),
   dec: v => (v == null || isNaN(v) ? '' : Math.round(v * 100) / 100),
-  pct: v => (v == null || isNaN(v) ? '' : (v * 100).toFixed(3)),
+  pct: v => (v == null || isNaN(v) ? '' : Math.round(v * 100000) / 1000),
   date: v => (v ? new Date(v).toLocaleDateString('sv-SE') : ''),
   dur: v => v || '',
   text: v => v ?? '',
 };
 
-/* ---------------- 테이블 · CSV ---------------- */
+/* ---------------- 테이블 · 엑셀 ---------------- */
 
 // cols: { key, label, type: 'num'|'dec'|'pct'|'date'|'dur'|'text', html?(row), get?(row) }
 function renderTable(el, cols, rows, { sortKey = null, dir = -1, onRowClick, rowClass } = {}) {
@@ -451,38 +451,98 @@ function renderTable(el, cols, rows, { sortKey = null, dir = -1, onRowClick, row
   return { sortState: () => ({ sortKey, dir }) };
 }
 
-function downloadCSV(filename, cols, rows) {
-  const cell = v => {
-    if (v == null) return '';
-    let s = String(v);
-    // 엑셀 수식 주입 방지
-    // (@핸들 같은 작성자명은 그대로 두고, 함수처럼 보이는 @만 막는다)
-    if (typeof v === 'string' && (/^[=+\-\t\r]/.test(s) || /^@.*\(/.test(s))) s = "'" + s;
-    return /[",\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
-  };
-  const header = cols.map(c => cell(c.type === 'pct' ? `${c.label}(%)` : c.label));
-  const lines = rows.map(r => cols.map(c => {
+// 표 데이터를 엑셀 시트 하나로: 첫 줄은 열 제목, 숫자는 숫자 칸으로 넣는다
+function sheetFrom(name, cols, rows) {
+  const header = cols.map(c => (c.type === 'pct' ? `${c.label}(%)` : c.label));
+  const data = rows.map(r => cols.map(c => {
     const raw = c.csv ? c.csv(r) : (c.get ? c.get(r) : r[c.key]);
-    return cell(c.csv ? raw : (csvVal[c.type || 'text'] || csvVal.text)(raw));
-  }).join(','));
-  // BOM을 붙여 엑셀에서 한글이 깨지지 않게 한다
-  const blob = new Blob(['﻿' + [header.join(','), ...lines].join('\r\n')], { type: 'text/csv;charset=utf-8' });
+    return c.csv ? raw : (csvVal[c.type || 'text'] || csvVal.text)(raw);
+  }));
+  const widths = cols.map(c => (c.key === 'text' ? 70 : c.cls === 'title' || c.key === 'url' ? 50 : c.type && c.type !== 'text' ? 12 : 20));
+  return { name, rows: [header, ...data], widths, header: true };
+}
+
+const crcTable = (() => {
+  const t = new Uint32Array(256);
+  for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; }
+  return t;
+})();
+const crc32 = buf => { let c = 0xFFFFFFFF; for (let i = 0; i < buf.length; i++) c = crcTable[(c ^ buf[i]) & 255] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0; };
+
+// 압축 없이 묶는 최소한의 zip (xlsx는 xml 파일들을 zip으로 묶은 것)
+function zipStore(files) {
+  const enc = new TextEncoder(), parts = [], central = [];
+  let offset = 0;
+  for (const [path, text] of files) {
+    const name = enc.encode(path), data = enc.encode(text), crc = crc32(data);
+    const head = new DataView(new ArrayBuffer(30));
+    head.setUint32(0, 0x04034b50, true); head.setUint16(4, 20, true); head.setUint16(6, 0x0800, true);
+    head.setUint32(14, crc, true); head.setUint32(18, data.length, true); head.setUint32(22, data.length, true);
+    head.setUint16(26, name.length, true);
+    parts.push(head, name, data);
+    const cd = new DataView(new ArrayBuffer(46));
+    cd.setUint32(0, 0x02014b50, true); cd.setUint16(4, 20, true); cd.setUint16(6, 20, true); cd.setUint16(8, 0x0800, true);
+    cd.setUint32(16, crc, true); cd.setUint32(20, data.length, true); cd.setUint32(24, data.length, true);
+    cd.setUint16(28, name.length, true); cd.setUint32(42, offset, true);
+    central.push(cd, name);
+    offset += 30 + name.length + data.length;
+  }
+  const size = central.reduce((n, x) => n + x.byteLength, 0);
+  const end = new DataView(new ArrayBuffer(22));
+  end.setUint32(0, 0x06054b50, true); end.setUint16(8, files.length, true); end.setUint16(10, files.length, true);
+  end.setUint32(12, size, true); end.setUint32(16, offset, true);
+  return new Blob([...parts, ...central, end], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+}
+
+// sheets: [{ name, rows: 2차원 배열, widths?, header? }] → .xlsx 내려받기
+// 글자는 inline 문자열로 넣어서 "="로 시작해도 수식으로 실행되지 않는다
+function downloadXLSX(filename, sheets) {
+  const x = v => String(v).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])).replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, '');
+  const colName = i => { let s = ''; for (i++; i; i = Math.floor((i - 1) / 26)) s = String.fromCharCode(65 + ((i - 1) % 26)) + s; return s; };
+  const used = new Set();
+  const names = sheets.map(s => {
+    let n = s.name.replace(/[\\/?*[\]:]/g, ' ').slice(0, 31) || 'Sheet';
+    for (let k = 2; used.has(n); k++) n = `${n.slice(0, 28)} ${k}`;
+    used.add(n);
+    return n;
+  });
+  const sheetXml = s => {
+    const body = s.rows.map((row, r) => `<row r="${r + 1}">${row.map((v, c) => {
+      if (v == null || v === '') return '';
+      const ref = colName(c) + (r + 1), st = s.header && r === 0 ? ' s="1"' : s.bold?.includes(c) ? ' s="1"' : '';
+      return typeof v === 'number' && isFinite(v) ? `<c r="${ref}"${st}><v>${v}</v></c>` : `<c r="${ref}" t="inlineStr"${st}><is><t xml:space="preserve">${x(v)}</t></is></c>`;
+    }).join('')}</row>`).join('');
+    const cols = s.widths ? `<cols>${s.widths.map((w, i) => `<col min="${i + 1}" max="${i + 1}" width="${w}" customWidth="1"/>`).join('')}</cols>` : '';
+    const freeze = s.header ? '<sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>' : '';
+    return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">${freeze}${cols}<sheetData>${body}</sheetData></worksheet>`;
+  };
+  const files = [
+    ['[Content_Types].xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>${sheets.map((_, i) => `<Override PartName="/xl/worksheets/sheet${i + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join('')}</Types>`],
+    ['_rels/.rels', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>'],
+    ['xl/workbook.xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets>${names.map((n, i) => `<sheet name="${x(n)}" sheetId="${i + 1}" r:id="rId${i + 1}"/>`).join('')}</sheets></workbook>`],
+    ['xl/_rels/workbook.xml.rels', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${sheets.map((_, i) => `<Relationship Id="rId${i + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${i + 1}.xml"/>`).join('')}<Relationship Id="rId${sheets.length + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`],
+    ['xl/styles.xml', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="2"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><name val="Calibri"/></font></fonts><fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills><borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="2"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>'],
+    ...sheets.map((s, i) => [`xl/worksheets/sheet${i + 1}.xml`, sheetXml(s)]),
+  ];
   const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = `${filename}_${new Date().toLocaleDateString('sv-SE')}.csv`;
+  a.href = URL.createObjectURL(zipStore(files));
+  a.download = `${filename.replace(/[\\/:*?"<>|]/g, '_')}_${new Date().toLocaleDateString('sv-SE')}.xlsx`;
   document.body.appendChild(a);
   a.click();
   a.remove();
   setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 }
 
+// 표 하나짜리 엑셀
+const downloadTable = (filename, sheetName, cols, rows) => downloadXLSX(filename, [sheetFrom(sheetName, cols, rows)]);
+
 function block(el, { title, sub = '', actions = [] }) {
   el.innerHTML = `
     <div class="card">
       <div class="block-head">
         <div><h3>${esc(title)}</h3>${sub ? `<p class="muted">${sub}</p>` : ''}</div>
-        <div class="block-actions">${actions.map((a, i) => `<button class="ghost small" data-a="${i}">${esc(a.label)}</button>`).join('')}</div>
       </div>
+      ${actions.length ? `<div class="block-actions">${actions.map((a, i) => `<button class="ghost small" data-a="${i}">${esc(a.label)}</button>`).join('')}</div>` : ''}
       <div class="block-body"></div>
     </div>`;
   el.querySelectorAll('[data-a]').forEach(b => { b.onclick = () => actions[+b.dataset.a].run(); });
@@ -932,10 +992,9 @@ async function runChannels() {
       failed.length ? `찾지 못한 채널: ${esc(failed.join(', '))}` : '',
     ].filter(Boolean).join(' · '),
     actions: plan.on ? [
-      { label: '채널 요약 CSV', run: () => downloadCSV('채널비교', channelCsvCols, channelResults) },
-      { label: '전체 영상 CSV', run: () => downloadCSV('채널별_영상', [{ key: 'channelTitle', label: '채널', type: 'text' }, ...videoCols(false), ...videoCsvExtra], channelResults.flatMap(c => c.videos)) },
+      { label: '엑셀 다운로드 (채널 요약 + 전체 영상)', run: () => downloadXLSX('채널비교', [sheetFrom('채널 요약', channelCsvCols, channelResults), sheetFrom('전체 영상', [{ key: 'channelTitle', label: '채널', type: 'text' }, ...videoCols(false), ...videoCsvExtra], channelResults.flatMap(c => c.videos))]) },
     ] : [
-      { label: '채널 요약 CSV', run: () => downloadCSV('채널비교', channelBaseCsvCols, channelResults) },
+      { label: '엑셀 다운로드', run: () => downloadTable('채널비교', '채널 요약', channelBaseCsvCols, channelResults) },
     ],
   });
   body.innerHTML = '<div class="cmp"></div><div class="ctbl"></div>';
@@ -957,7 +1016,7 @@ function showChannelDetail(c) {
   const body = block($('#chDetail'), {
     title: c.title,
     sub: `${esc(c.handle)} · 개설 ${fmt.date(c.createdAt)}${c.country ? ' · ' + esc(c.country) : ''} · 분석 영상 ${c.sample}개`,
-    actions: [{ label: '이 채널 영상 CSV', run: () => downloadCSV(`${c.title}_영상`, [...videoCols(false), ...videoCsvExtra], c.videos) }],
+    actions: [{ label: '이 채널 영상 엑셀 다운로드', run: () => downloadTable(`${c.title}_영상`, '영상', [...videoCols(false), ...videoCsvExtra], c.videos) }],
   });
   body.innerHTML = statCards([
     ['구독자', fmt.compact(c.subs), c.subs == null ? '비공개' : fmt.num(c.subs)],
@@ -1024,7 +1083,7 @@ async function runVideos() {
   const body = block($('#vResult'), {
     title: `영상 ${vids.length}개`,
     sub: [missing ? `비공개·삭제 등으로 ${missing}개를 불러오지 못했습니다` : '', bad.length ? `인식하지 못한 줄 ${bad.length}개` : ''].filter(Boolean).join(' · '),
-    actions: [{ label: 'CSV 다운로드', run: () => downloadCSV('영상분석', [...cols, ...videoCsvExtra], videoResults) }],
+    actions: [{ label: '엑셀 다운로드', run: () => downloadTable('영상분석', '영상', [...cols, ...videoCsvExtra], videoResults) }],
   });
   const many = vids.length > 1;
   body.innerHTML = (many ? `<p class="stats-caption"><span class="tag">합산</span> 입력한 영상 ${vids.length}개를 모두 더하거나 평균 낸 값입니다. 영상별 수치는 아래 표에서 볼 수 있습니다.</p>` : '')
@@ -1297,7 +1356,7 @@ function renderSearch() {
       ] : [
         { label: '채널 비교·분석로 보내기', run: () => sendToChannels(list.map(c => c.id)) },
       ]),
-      { label: 'CSV 다운로드', run: () => downloadCSV(`${isVideo ? '검색' : '채널검색'}_${s.q}`, csvCols, list) },
+      { label: '엑셀 다운로드', run: () => downloadTable(`${isVideo ? '검색' : '채널검색'}_${s.q}`, '검색 결과', csvCols, list) },
     ],
   });
   body.innerHTML = `
@@ -1421,7 +1480,7 @@ async function runComments() {
     quotaHit = true;
   }
 
-  commentData = { video, comments: comments.slice(0, max), filter: null };
+  commentData = { video, comments: comments.slice(0, max), filter: null, order };
   renderComments();
   if (quotaHit) quotaNotice('#cStatus', `댓글 ${fmt.num(comments.length)}개까지만 수집했습니다.`);
   addRecent('comments', video.title);
@@ -1457,10 +1516,31 @@ function renderComments() {
     title: video.title,
     sub: `${esc(video.channelTitle)} · 조회수 ${fmt.num(video.views)} · 전체 댓글 ${fmt.num(video.comments)}개(답글 포함) 중 ${fmt.num(comments.length)}개 수집`,
     actions: [{
-      label: 'CSV 다운로드',
+      label: '엑셀 다운로드',
       run: () => {
-        const f = commentData.filter;
-        downloadCSV(`댓글_${video.id}${f ? '_' + f.value : ''}`, csvCols, f ? visible() : comments);
+        const f = commentData.filter, rows = f ? visible() : comments;
+        const orderName = { relevance: '인기순', time: '최신순' }[commentData.order] || '';
+        const info = [
+          ['항목', '내용'],
+          ['영상 제목', video.title],
+          ['영상 URL', video.url],
+          ['채널', video.channelTitle],
+          ['채널 URL', `https://www.youtube.com/channel/${video.channelId}`],
+          ['게시일', csvVal.date(video.publishedAt)],
+          ['길이', fmt.dur(video.duration)],
+          ['조회수', video.views ?? ''],
+          ['좋아요', video.likes ?? ''],
+          ['댓글 수(답글 포함)', video.comments ?? ''],
+          ['수집 댓글 수', comments.length],
+          ...(orderName ? [['수집 순서', orderName]] : []),
+          ...(f ? [['필터', `“${f.value}” ${f.kind === 'word' ? '포함' : '언급'} 댓글 ${rows.length}개만`]] : []),
+          ...(keywords.length ? [['언급 키워드', keywords.join(', ')]] : []),
+          ['내려받은 날짜', new Date().toLocaleString('sv-SE')],
+        ];
+        downloadXLSX(`댓글_${video.id}${f ? '_' + f.value : ''}`, [
+          { name: '영상 정보', rows: info, widths: [20, 80], header: true },
+          sheetFrom('댓글', csvCols, rows),
+        ]);
       },
     }],
   });

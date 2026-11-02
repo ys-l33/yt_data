@@ -183,6 +183,7 @@ main::after { bottom: 64px; }
 .scope-opt { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
 .scope-opt input[type=radio] { accent-color: var(--ink); width: 16px; height: 16px; margin: 0; }
 .sub-panel .muted { margin: 6px 0 0; }
+.sub-panel select, .sub-panel input[type=date] { height: 33px; padding-top: 4px; padding-bottom: 4px; }
 .count-custom { position: relative; display: flex; align-items: center; gap: 6px; margin-top: 6px; }
 .count-custom input { flex: 1; min-width: 0; }
 .info-btn {

@@ -439,7 +439,7 @@ table.data th.del, table.data td.del { width: 1%; padding-left: 12px; padding-ri
 .picker-info .muted { font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* ---------- 비교 막대 ---------- */
-.stats-caption { display: flex; align-items: center; gap: 8px; margin: -4px 0 10px; font-size: 13px; color: var(--ink-2); }
+.stats-caption { display: flex; align-items: center; gap: 8px; margin: 4px 0 10px; font-size: 13px; color: var(--ink-2); }
 .compare { margin-bottom: 20px; padding: 14px 16px 12px; border: 1px solid var(--rule); background: var(--paper-hi); }
 .compare-head { display: flex; align-items: center; gap: 8px 16px; flex-wrap: wrap; margin-bottom: 12px; }
 .compare-head strong { font-family: var(--f-title); font-size: 15px; }
@@ -536,3 +536,12 @@ body.modal-open { overflow: hidden; }
   .modal-sheet { padding: 24px 18px 20px; }
   .modal-sheet .keyrow .primary { width: auto; }
 }
+
+/* 열 묶음 제목 (채널 전체 / 분석 영상 기준) */
+table.data.grouped thead { position: sticky; top: 0; z-index: 2; }
+table.data.grouped th { position: static; }
+table.data tr.group-row th { cursor: default; border-bottom: 1px solid var(--rule); padding: 7px 14px; font-size: 11.5px; letter-spacing: .02em; }
+table.data tr.group-row th.grp { color: var(--ink); background: var(--tint); text-align: left; }
+table.data tr.group-row th.grp ~ th.grp { background: var(--tint-2); }
+table.data th.grp-start, table.data td.grp-start, table.data tr.group-row th.grp { border-left: 1px solid var(--rule-2); }
+.stats-caption .tag.vid { background: var(--tint-2); }

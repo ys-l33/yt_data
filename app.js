@@ -419,22 +419,31 @@ function renderTable(el, cols, rows, { sortKey = null, dir = -1, onRowClick, row
         return (typeof x === 'string' ? x.localeCompare(y, 'ko') : x - y) * dir;
       });
     }
-    const head = cols.map(c => {
+    const groupStart = new Set(cols.map((c, j) => (c.group && cols[j - 1]?.group !== c.group ? j : -1)));
+    const head = cols.map((c, j) => {
       const isNum = c.type && c.type !== 'text';
       const arrow = sortKey === c.key ? (dir > 0 ? ' ▲' : ' ▼') : '';
-      if (c.sortable === false) return `<th class="${c.cls || ''}">${esc(c.label)}</th>`;
-      return `<th data-k="${c.key}" class="${isNum ? 'num' : ''} ${c.cls || ''} ${sortKey === c.key ? 'sorted' : ''}">${esc(c.label)}${arrow}</th>`;
+      const gs = groupStart.has(j) ? ' grp-start' : '';
+      if (c.sortable === false) return `<th class="${c.cls || ''}${gs}">${esc(c.label)}</th>`;
+      return `<th data-k="${c.key}" class="${isNum ? 'num' : ''} ${c.cls || ''}${gs} ${sortKey === c.key ? 'sorted' : ''}">${esc(c.label)}${arrow}</th>`;
     }).join('');
+    // 열 묶음 제목 줄 (같은 group이 이어진 열끼리 합친다)
+    let groupRow = '';
+    if (cols.some(c => c.group)) {
+      const spans = [];
+      cols.forEach(c => { const last = spans[spans.length - 1]; if (last && last.g === (c.group || '')) last.n++; else spans.push({ g: c.group || '', n: 1 }); });
+      groupRow = `<tr class="group-row">${spans.map((x, j) => `<th colspan="${x.n}" class="${x.g ? 'grp grp-' + j : ''}">${esc(x.g)}</th>`).join('')}</tr>`;
+    }
     const body = list.map(([r, i]) => {
       const cls = [onRowClick ? 'clickable' : '', rowClass?.(r) || ''].join(' ');
-      const tds = cols.map(c => {
+      const tds = cols.map((c, j) => {
         const isNum = c.type && c.type !== 'text';
         const content = c.html ? c.html(r) : esc(fmt[c.type]?.(get(c, r)) ?? get(c, r));
-        return `<td class="${isNum ? 'num' : ''} ${c.cls || ''}">${content}</td>`;
+        return `<td class="${isNum ? 'num' : ''} ${c.cls || ''} ${groupStart.has(j) ? 'grp-start' : ''}">${content}</td>`;
       }).join('');
       return `<tr data-i="${i}" class="${cls}">${tds}</tr>`;
     }).join('');
-    el.innerHTML = `<div class="tablewrap"><table class="data"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div>`;
+    el.innerHTML = `<div class="tablewrap"><table class="data${groupRow ? ' grouped' : ''}"><thead>${groupRow}<tr>${head}</tr></thead><tbody>${body}</tbody></table></div>`;
   };
   el.onclick = e => {
     const th = e.target.closest('th[data-k]');
@@ -818,6 +827,12 @@ const COMPARE_MAX = 20;
 function compareChart(el, items, metrics, { label, link } = {}) {
   if (items.length < 2) { el.innerHTML = ''; return; }
   let key = metrics[0].key, desc = true;
+  // 지표에 group이 있으면 묶음(optgroup)으로 나눠 보여준다
+  const metricOptions = () => {
+    const opt = x => `<option value="${x.key}" ${x.key === key ? 'selected' : ''}>${esc(x.label)}</option>`;
+    if (!metrics.some(x => x.group)) return metrics.map(opt).join('');
+    return unique(metrics.map(x => x.group)).map(g => `<optgroup label="${esc(g)}">${metrics.filter(x => x.group === g).map(opt).join('')}</optgroup>`).join('');
+  };
   const draw = () => {
     const m = metrics.find(x => x.key === key);
     const rows = items.filter(r => r[key] != null).sort((a, b) => (desc ? b[key] - a[key] : a[key] - b[key]));
@@ -828,7 +843,7 @@ function compareChart(el, items, metrics, { label, link } = {}) {
         <div class="compare-head">
           <strong>한눈에 비교</strong>
           <label class="inline">지표
-            <select class="compare-metric">${metrics.map(x => `<option value="${x.key}" ${x.key === key ? 'selected' : ''}>${esc(x.label)}</option>`).join('')}</select>
+            <select class="compare-metric">${metricOptions()}</select>
           </label>
           <button type="button" class="ghost small compare-order" title="정렬 순서 바꾸기">${desc ? '높은 순 ↓' : '낮은 순 ↑'}</button>
           ${rows.length > COMPARE_MAX ? `<span class="muted">${desc ? '상위' : '하위'} ${COMPARE_MAX}개만 표시</span>` : ''}
@@ -849,7 +864,6 @@ function compareChart(el, items, metrics, { label, link } = {}) {
 const CHANNEL_COMPARE = [
   { key: 'avgViews', label: '평균 조회수', type: 'num' },
   { key: 'medianViews', label: '중앙값 조회수', type: 'num' },
-  { key: 'subs', label: '구독자', type: 'num' },
   { key: 'er', label: '참여율', type: 'pct' },
   { key: 'reach', label: '구독자 대비 조회율', type: 'pct' },
   { key: 'avgLikes', label: '평균 좋아요', type: 'num' },
@@ -914,11 +928,13 @@ const CHANNEL_BASE_COMPARE = [
   { key: 'ageYears', label: '운영 기간(년)', type: 'dec' },
 ];
 
+// 상세 설정을 켠 결과: 채널 전체 값과 분석 범위 영상으로 계산한 값을 열 묶음으로 구분한다
+const CH_GROUP = '채널 전체', VID_GROUP = '분석 영상 기준';
 const channelCols = [
   channelCol,
-  { key: 'subs', label: '구독자', type: 'num' },
-  { key: 'totalViews', label: '총 조회수', type: 'num' },
-  { key: 'videoCount', label: '총 영상', type: 'num' },
+  { key: 'subs', label: '구독자', type: 'num', group: CH_GROUP },
+  { key: 'totalViews', label: '채널 총 조회수', type: 'num', group: CH_GROUP },
+  { key: 'videoCount', label: '채널 총 영상', type: 'num', group: CH_GROUP },
   { key: 'sample', label: '분석 영상', type: 'num' },
   { key: 'avgViews', label: '평균 조회수', type: 'num' },
   { key: 'medianViews', label: '중앙값 조회수', type: 'num' },
@@ -929,7 +945,7 @@ const channelCols = [
   { key: 'perWeek', label: '주간 업로드', type: 'dec' },
   { key: 'shortsRatio', label: '쇼츠 비중', type: 'pct' },
   { key: 'lastUpload', label: '최근 업로드', type: 'date' },
-];
+].map((c, i) => (i > 3 ? { ...c, group: VID_GROUP } : c));
 const channelCsvCols = [
   { key: 'title', label: '채널명', type: 'text' },
   { key: 'handle', label: '핸들', type: 'text' },
@@ -973,7 +989,7 @@ async function runChannels() {
       const progress = (k, scanned) => setStatus('#chStatus', plan.mode === 'recent' ? `${label} ${k}개` : `${label} ${scanned}개 읽는 중`, 'busy');
       const { picked, scanned } = await pickChannelVideos(ch, plan, progress);
       const period = plan.mode === 'date' ? { since: plan.since, before: plan.before } : null;
-      results.push({ ...channelMetrics(ch, picked, scanned, period), ageYears: ch.ageYears, sortKey: plan.mode === 'top' ? CHANNEL_SORT[plan.sort].key : null });
+      results.push({ ...channelMetrics(ch, picked, scanned, period), ageYears: ch.ageYears, plan, sortKey: plan.mode === 'top' ? CHANNEL_SORT[plan.sort].key : null });
     }
   } catch (e) {
     // 도중에 끊긴 채널은 영상이 일부만 모여 지표가 왜곡되므로 넣지 않는다
@@ -998,7 +1014,7 @@ async function runChannels() {
     ],
   });
   body.innerHTML = '<div class="cmp"></div><div class="ctbl"></div>';
-  compareChart($('.cmp', body), results, plan.on ? [...CHANNEL_COMPARE, ...CHANNEL_BASE_COMPARE.filter(m => !CHANNEL_COMPARE.some(c => c.key === m.key))] : CHANNEL_BASE_COMPARE, { label: r => r.title, link: r => r.url });
+  compareChart($('.cmp', body), results, plan.on ? [...CHANNEL_COMPARE.map(m => ({ ...m, group: VID_GROUP })), ...CHANNEL_BASE_COMPARE.map(m => ({ ...m, group: CH_GROUP, label: m.key === 'totalViews' || m.key === 'videoCount' ? '채널 ' + m.label : m.label }))] : CHANNEL_BASE_COMPARE, { label: r => r.title, link: r => r.url });
   renderTable($('.ctbl', body), plan.on ? channelCols : channelBaseCols, results, plan.on ? {
     onRowClick: (r, tr) => {
       tr.parentElement.querySelectorAll('tr.selected').forEach(x => x.classList.remove('selected'));
@@ -1018,8 +1034,14 @@ function showChannelDetail(c) {
     sub: `${esc(c.handle)} · 개설 ${fmt.date(c.createdAt)}${c.country ? ' · ' + esc(c.country) : ''} · 분석 영상 ${c.sample}개`,
     actions: [{ label: '이 채널 영상 엑셀 다운로드', run: () => downloadTable(`${c.title}_영상`, '영상', [...videoCols(false), ...videoCsvExtra], c.videos) }],
   });
-  body.innerHTML = statCards([
-    ['구독자', fmt.compact(c.subs), c.subs == null ? '비공개' : fmt.num(c.subs)],
+  body.innerHTML = `<p class="stats-caption"><span class="tag">채널 전체</span> 채널 개설 이후 전체 기준 값입니다.</p>`
+    + statCards([
+      ['구독자', fmt.compact(c.subs), c.subs == null ? '비공개' : fmt.num(c.subs)],
+      ['채널 총 조회수', fmt.compact(c.totalViews), fmt.num(c.totalViews)],
+      ['채널 총 영상', `${fmt.num(c.videoCount)}개`, `영상당 평균 ${fmt.compact(c.lifetimeAvgViews)}`],
+    ])
+    + `<p class="stats-caption"><span class="tag vid">분석 영상 기준</span> ${esc(planText(c.plan).replace(/^영상 지표: /, ''))} (실제 분석 ${fmt.num(c.sample)}개)로 계산한 값입니다.</p>`
+    + statCards([
     ['평균 조회수', fmt.compact(c.avgViews), `중앙값 ${fmt.compact(c.medianViews)}`],
     ['구독자 대비 조회율', fmt.pct(c.reach), `중앙값 기준 ${fmt.pct(c.medianReach)}`],
     ['참여율', fmt.pct(c.er), `좋아요 ${fmt.pct(c.likeRate)} · 댓글 ${fmt.pct(c.commentRate)}`],
@@ -1028,7 +1050,6 @@ function showChannelDetail(c) {
     ['히트 영상', `${c.hits ?? '-'}개`, '중앙값의 2배 이상'],
     ['조회수 편차(CV)', c.cv == null ? '-' : c.cv.toFixed(2), '낮을수록 성과가 안정적', CV_INFO],
     ['쇼츠 비중', fmt.pct(c.shortsRatio), `평균 길이 ${fmt.dur(Math.round(c.avgDuration || 0))}`],
-    ['총 조회수', fmt.compact(c.totalViews), `영상 ${fmt.num(c.videoCount)}개`],
   ]) + viewsChart(c.videos) + '<div class="vtable"></div>';
   bindChartTips(body, c.videos);
   renderTable($('.vtable', body), videoCols(false), c.videos, c.sortKey ? { sortKey: c.sortKey } : {});

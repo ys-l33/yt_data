@@ -296,7 +296,7 @@ function channelPlan() {
 }
 
 function planText(p) {
-  if (!p.on) return '채널 자체 지표만 비교 (채널당 할당량 약 1)';
+  if (!p.on) return '채널 자체 지표만 비교: 구독자, 총 조회수, 총 영상 수, 영상당 평균 조회수(누적), 개설일, 운영 기간, 국가 (채널당 할당량 약 1)';
   const type = { all: '', long: ' 일반', short: ' 쇼츠' }[p.type];
   if (p.mode === 'recent') return `영상 지표: 최근${type} 영상 ${p.n}개`;
   if (p.mode === 'date') return `영상 지표: ${p.from || '처음'} ~ ${p.to || '오늘'} 게시${type} 영상 전체`;

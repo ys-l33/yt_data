@@ -545,3 +545,5 @@ table.data tr.group-row th.grp { color: var(--ink); background: var(--tint); tex
 table.data tr.group-row th.grp ~ th.grp { background: var(--tint-2); }
 table.data th.grp-start, table.data td.grp-start, table.data tr.group-row th.grp { border-left: 1px solid var(--rule-2); }
 .stats-caption .tag.vid { background: var(--tint-2); }
+
+#chScopeSummary { word-break: keep-all; }
